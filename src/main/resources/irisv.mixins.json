@@ -1,0 +1,14 @@
+{
+  "required": true,
+  "package": "net.opal.irisv.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "MultiPlayerGameModeAccessor"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "overwrites": {
+    "requireAnnotations": true
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "menu.irisv.options": "IrisV Options",
+  "menu.irisv.return": "Return",
+  "menu.irisv.debug_chat": "Debug Chat : %s",
+  "menu.irisv.on": "On",
+  "menu.irisv.off": "Off",
+
+  "menu.irisv.version": "IrisV 0.0.1 - Alpha",
+  "menu.irisv.block_tooltip_overlay": "Block Tooltip : %s",
+
+  "debug.chat.irisv.prefix.debug": "§6[DEBUG] ",
+  "debug.chat.irisv.prefix.info": "§b[INFO] ",
+  "debug.chat.irisv.prefix.action": "§a[ACTION] ",
+  "debug.chat.irisv.prefix.error": "§c[ERROR] ",
+
+  "reloadfile.action.config.start_reload": "Reloaded folder : %s",
+  "reloadfile.info.config.loaded": "%s  :  loaded successfully",
+  "reloadfile.error.config.folder": "Config folder not found  : %s",
+  "reloadfile.error.config.load": "Failed to load : %s",
+  "reloadfile.error.config.reload": "Failed to reload configs : %s",
+  "reloadfile.action.config.reload": "Reloaded file %s "
+}
