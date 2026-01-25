@@ -3,6 +3,8 @@ package net.opal.irisv;
 import net.opal.irisv.menu.MainMenu;
 import net.opal.irisv.menu.MainMenuTitleOverlay;
 import net.opal.irisv.menu.MenuPause;
+import net.opal.irisv.network.NetworkHandler;
+import net.opal.irisv.network.ServerDataSender;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -21,12 +23,19 @@ public class Irisv {
 
     // File d'attente de tâches serveur
     public Irisv(IEventBus modEventBus) {
-        // --- Enregistrement des Configs et Outils ---
         ConfigOptions.load();
 
-        // --- Enregistrement des Bus d'événements ---
+        // --- Bus d'Événements du MOD (modEventBus) ---
+        // Utilisé pour l'initialisation, comme l'enregistrement des paquets
+        modEventBus.register(NetworkHandler.class);
+
+        // --- Bus d'Événements NEOFORGE (NeoForge.EVENT_BUS) ---
+        // Utilisé pour les événements de jeu (ticks, rendus, clics)
         NeoForge.EVENT_BUS.register(TooltipOverlay.class);
         NeoForge.EVENT_BUS.addListener(ConfigReloader::register);
+
+        // Enregistrement du sender pour le multijoueur
+        NeoForge.EVENT_BUS.register(ServerDataSender.class);
 
         NeoForge.EVENT_BUS.register(MenuPause.class);
         NeoForge.EVENT_BUS.register(MainMenu.class);

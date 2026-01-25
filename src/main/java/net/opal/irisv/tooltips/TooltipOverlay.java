@@ -2,13 +2,12 @@ package net.opal.irisv.tooltips;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
-import net.minecraft.util.Mth;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.client.event.RenderGuiEvent;
-import net.opal.irisv.mixin.MultiPlayerGameModeAccessor;
+import net.opal.irisv.mixin.DestroyAccessor;
 import net.opal.irisv.option.ConfigOptions;
 
 public class TooltipOverlay {
@@ -45,12 +44,12 @@ public class TooltipOverlay {
         var fluid = mc.level.getFluidState(pos);
 
         // Récupération de la progression réelle via le Mixin
-        var gameMode = (MultiPlayerGameModeAccessor) mc.gameMode;
+        var gameMode = (DestroyAccessor) mc.gameMode;
         float currentProgress = gameMode.getDestroyProgress();
 
         updateProgress(pos, currentProgress, state);
 
-        var info = TooltipDataCollector.collect(mc, pos, state, fluid);
+        var info = TooltipData.collect(mc, pos, state, fluid);
         long timeSinceFinish = System.currentTimeMillis() - finishTime;
 
         TooltipOverlayRenderer.render(

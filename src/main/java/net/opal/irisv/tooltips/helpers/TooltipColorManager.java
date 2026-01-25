@@ -10,9 +10,9 @@ public class TooltipColorManager {
         // --- CONFIGURATION MANUELLE ---
         MANUAL_COLORS.put("minecraft", 0x5555FF);      // Bleu
         MANUAL_COLORS.put("create", 0xFFB43C);         // Doré
-        MANUAL_COLORS.put("twilightforest", 0x00D413); // Vert
+        MANUAL_COLORS.put("Waystones", 0x00D413); // Vert
         MANUAL_COLORS.put("botania", 0x00FF00);        // Vert Flashy
-        MANUAL_COLORS.put("mekanism", 0x1ED7FF);       // Cyan
+        MANUAL_COLORS.put("mcwfences", 0x1ED7FF);       // Cyan
         MANUAL_COLORS.put("eden", 0xFF55FF);           // Rose Eden
     }
 

@@ -30,7 +30,7 @@ public class MenuPause {
                 event.removeListener(oldButton);
                 Button irisvOptionsButton = Button.builder(
                                 Component.translatable("menu.irisv.options"),
-                                b -> screen.getMinecraft().setScreen(new MenuOption(screen)))
+                                b -> screen.getMinecraft().setScreen(new MenuOptionIrisv(screen)))
                         .pos(oldButton.getX(), oldButton.getY())
                         .size(oldButton.getWidth(), oldButton.getHeight())
                         .build();

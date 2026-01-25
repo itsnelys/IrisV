@@ -7,11 +7,11 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
 import net.opal.irisv.option.ConfigOptions;
 
-public class MenuOption extends Screen {
+public class MenuOptionIrisv extends Screen {
 
     private final Screen parent;
 
-    public MenuOption(Screen parent) {
+    public MenuOptionIrisv(Screen parent) {
         super(Component.literal("IrisV Options"));
         this.parent = parent;
     }

@@ -3,7 +3,7 @@
   "package": "net.opal.irisv.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
-    "MultiPlayerGameModeAccessor"
+    "DestroyAccessor"
   ],
   "injectors": {
     "defaultRequire": 1

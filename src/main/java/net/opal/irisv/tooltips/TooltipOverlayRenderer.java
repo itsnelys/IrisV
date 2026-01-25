@@ -12,7 +12,7 @@ import java.util.List;
 
 public class TooltipOverlayRenderer {
 
-    public static void render(GuiGraphics gui, Font font, TooltipDataCollector.BlockInfo info, BlockState state, float visualProgress, long timeSinceFinish, int screenWidth) {
+    public static void render(GuiGraphics gui, Font font, TooltipData.BlockInfo info, BlockState state, float visualProgress, long timeSinceFinish, int screenWidth) {
         int nameWidth = font.width(info.name());
         int modWidth = font.width(info.modName());
 
