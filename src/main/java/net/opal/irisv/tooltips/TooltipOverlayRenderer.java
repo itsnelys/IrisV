@@ -57,6 +57,12 @@ public class TooltipOverlayRenderer {
                     int rowWidth = 16 + maxQteWidth + nameWidth2;
                     previewMaxWidth = Math.max(previewMaxWidth, rowWidth);
                 }
+
+                for (ItemStack stack : previewItems) {
+                    if (stack == null || stack.isEmpty() || stack.getItem() == Items.AIR) {
+                        continue; // On saute l'affichage si l'item est buggé
+                    }
+                }
             }
             // --- MODE GRILLE COMPLÈTE ---
             else if (hasCtrl || itemCount <= 9) {

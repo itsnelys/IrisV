@@ -14,7 +14,7 @@ public class CopperTooltipProvider implements IBlockTooltipProvider {
     public boolean isApplicable(BlockState state, BlockEntity be) {
         String id = state.getBlock().getDescriptionId();
         // On s'active pour le cuivre MAIS on ignore si c'est un minerai (ore)
-        return id.contains("copper") && !id.contains("ore") && !id.contains("raw");
+        return id.contains("copper") && !id.contains("ore") && !id.contains("raw") && !id.contains("chest") && !id.contains("barrel");
     }
 
     @Override

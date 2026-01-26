@@ -32,33 +32,5 @@ public class HopperTooltipProvider implements IBlockTooltipProvider {
                 info.add("§cVerrouillé (Redstone)");
             }
         }
-
-        // 2. Récupération des données réseau
-        CompoundTag nbt = accessor.serverData();
-        if (nbt == null || !nbt.contains("Items", 9)) return;
-
-        ListTag list = nbt.getList("Items", 10);
-        Map<String, ItemStack> combinedItems = new LinkedHashMap<>();
-
-        // 3. Lecture et fusion des items (5 slots max pour un hopper)
-        for (int i = 0; i < list.size(); i++) {
-            CompoundTag itemTag = list.getCompound(i);
-
-            ItemStack.parse(accessor.level().registryAccess(), itemTag).ifPresent(stack -> {
-                if (!stack.isEmpty()) {
-                    String key = stack.getItem().toString() + stack.getComponents().hashCode();
-                    if (combinedItems.containsKey(key)) {
-                        combinedItems.get(key).grow(stack.getCount());
-                    } else {
-                        combinedItems.put(key, stack.copy());
-                    }
-                }
-            });
-        }
-
-        // 4. Envoi à la preview d'inventaire
-        if (!combinedItems.isEmpty()) {
-            accessor.setPreviewItems(new ArrayList<>(combinedItems.values()));
-        }
     }
 }

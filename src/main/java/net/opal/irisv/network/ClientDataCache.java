@@ -11,13 +11,18 @@ public class ClientDataCache {
     private static final Map<BlockPos, CompoundTag> CACHE = new ConcurrentHashMap<>();
 
     public static void update(BlockPos pos, CompoundTag tag) {
-        // Si le tag est vide (disque retiré), on nettoie la position
         if (tag == null || tag.isEmpty()) {
-            CACHE.remove(pos);
+            remove(pos); // Utilise la méthode remove ci-dessous
         } else {
-            // Nettoyage de sécurité si le joueur explore beaucoup
             if (CACHE.size() > 100) CACHE.clear();
             CACHE.put(pos, tag);
+        }
+    }
+
+    // --- AJOUTE CETTE MÉTHODE ---
+    public static void remove(BlockPos pos) {
+        if (pos != null) {
+            CACHE.remove(pos);
         }
     }
 
@@ -26,7 +31,6 @@ public class ClientDataCache {
     }
 
     public static void handleData(final BlockDataPayload payload, IPayloadContext context) {
-        // Mise à jour immédiate hors du thread principal pour éviter tout lag réseau
         update(payload.pos(), payload.tag());
     }
 }

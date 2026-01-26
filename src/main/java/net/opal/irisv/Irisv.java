@@ -1,5 +1,6 @@
 package net.opal.irisv;
 
+import net.opal.irisv.event.onBlockBreak;
 import net.opal.irisv.menu.MainMenu;
 import net.opal.irisv.menu.MainMenuTitleOverlay;
 import net.opal.irisv.menu.MenuPause;
@@ -37,8 +38,12 @@ public class Irisv {
         // Enregistrement du sender pour le multijoueur
         NeoForge.EVENT_BUS.register(ServerDataSender.class);
 
+        NeoForge.EVENT_BUS.register(onBlockBreak.class);
+
+
         NeoForge.EVENT_BUS.register(MenuPause.class);
         NeoForge.EVENT_BUS.register(MainMenu.class);
         NeoForge.EVENT_BUS.register(MainMenuTitleOverlay.class);
     }
 }
+

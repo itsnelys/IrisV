@@ -28,7 +28,6 @@ public class TooltipProviderRegistry {
         register(new NoteblockTooltipProvider());
         register(new FluidTooltipProvider());
         register(new JukeboxTooltipProvider());
-        register(new ChestTooltipProvider());
         register(new EnderChestTooltipProvider());
         register(new InventoryTooltipProvider());
         register(new HopperTooltipProvider());
