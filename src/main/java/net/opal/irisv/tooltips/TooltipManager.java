@@ -2,9 +2,12 @@ package net.opal.irisv.tooltips;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -29,11 +32,11 @@ public class TooltipManager {
     public static void onRenderGui(RenderGuiEvent.Post event) {
         if (!ConfigOptions.getInstance().enableBlockTooltipOverlay) return;
 
+
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null || mc.screen != null || mc.gameMode == null) return;
 
-        // 1. Raycast
-        var hitResult = mc.level.clip(new ClipContext(
+        HitResult hitResult = mc.level.clip(new ClipContext(
                 mc.player.getEyePosition(1f),
                 mc.player.getEyePosition(1f).add(mc.player.getViewVector(1f).scale(5)),
                 ClipContext.Block.OUTLINE,
@@ -48,54 +51,96 @@ public class TooltipManager {
 
         BlockHitResult blockHit = (BlockHitResult) hitResult;
         BlockPos pos = blockHit.getBlockPos();
-        var state = mc.level.getBlockState(pos);
-        var fluid = mc.level.getFluidState(pos);
-        BlockEntity be = mc.level.getBlockEntity(pos);
+        BlockState originalState = mc.level.getBlockState(pos);
 
-        // 2. Gestion de la progression (Barre de cassage)
+        // --- 1. SÉCURITÉ "CLEAN DESTRUCTION" (Comme Jade) ---
+        // Si le bloc est de l'air ou si la progression de minage est terminée, on stoppe tout de suite.
+        // Ça évite de voir le tooltip pendant 1 ou 2 frames alors que le bloc a disparu.
         var gameMode = (DestroyAccessor) mc.gameMode;
-        float currentProgress = gameMode.getDestroyProgress();
-        updateProgress(pos, currentProgress, state);
+        float progress = gameMode.getDestroyProgress();
 
-// --- 3. LOGIQUE D'API ---
+        if (originalState.isAir() || progress >= 1.0f) {
+            ClientDataCache.remove(pos);
+            updateProgress(null, 0, null);
+            return; // ON ARRÊTE LE RENDU ICI
+        }
 
-// On initialise avec une liste mutable pour la preview
-        List<ItemStack> itemsList = new ArrayList<>();
+        // --- 1. DONNÉES DE BASE DU BLOC VISÉ ---
+        BlockEntity originalBE = mc.level.getBlockEntity(pos);
+        var fluid = mc.level.getFluidState(pos);
+
+        // --- 2. PROGRESSION DE CASSAGE ---
+        updateProgress(pos, gameMode.getDestroyProgress(), originalState);
+
+        // --- 3. LOGIQUE DE REDIRECTION (MASTER/SLAVE) ---
+        BlockPos targetPos = pos;
+        CompoundTag data = ClientDataCache.get(pos);
+        BlockEntity finalBE = originalBE;
+        BlockState finalState = originalState;
+
+        // Si le bloc visé est vide, on cherche un Master autour
+        if (data == null || data.isEmpty()) {
+            for (Direction dir : Direction.values()) {
+                BlockPos nPos = pos.relative(dir);
+                CompoundTag neighborData = ClientDataCache.get(nPos);
+
+                if (neighborData != null && !neighborData.isEmpty()) {
+                    // On vérifie si c'est bien un inventaire (Items ou inventory)
+                    if (neighborData.contains("Items") || neighborData.contains("inventory") || neighborData.contains("Storage")) {
+                        data = neighborData;
+                        targetPos = nPos;
+                        finalBE = mc.level.getBlockEntity(nPos);
+                        finalState = mc.level.getBlockState(nPos);
+                        break;
+                    }
+                }
+            }
+        }
+
+        // --- 4. INITIALISATION DE L'ACCESSOR ---
+        ItemStack[] iconContainer = new ItemStack[]{ItemStack.EMPTY};
+        List<ItemStack>[] inventoryContainer = (List<ItemStack>[]) new List[]{new ArrayList<>()};
+        String[] titleContainer = new String[]{null};
+
         IBlockAccessor accessor = new IBlockAccessor(
                 mc.level,
                 mc.player,
-                pos,
-                state,
-                be,
-                ClientDataCache.get(pos),
+                targetPos, // On pointe vers le Master
+                finalState,
+                finalBE,
+                data,
                 hitResult,
-                new ItemStack[]{ItemStack.EMPTY},      // iconContainer
-                new List[]{new ArrayList<>()},         // inventoryContainer (on initialise une liste vide)
-                new String[]{null}                     // titleContainer (null par défaut pour garder le nom original)
+                iconContainer,
+                inventoryContainer,
+                titleContainer
         );
 
+        // --- 5. APPEL DES PROVIDERS ---
         List<String> extraInfo = new ArrayList<>();
         for (IBlockTooltipProvider provider : TooltipProviderRegistry.getProviders()) {
-            if (provider.isApplicable(state, be)) {
+            // IMPORTANT: On utilise finalState et finalBE pour que le provider
+            // reconnaisse que le bloc est un inventaire même si on regarde l'esclave.
+            if (provider.isApplicable(finalState, finalBE)) {
                 provider.addTooltip(extraInfo, accessor);
             }
         }
 
-// IMPORTANT : On récupère les items mis à jour par le provider AVANT le collect ou le render
-        var finalPreviewItems = accessor.getPreviewItems();
+// --- 6. COLLECTE ET FILTRAGE FINAL ---
+        var info = TooltipData.collect(mc, pos, finalState, fluid, extraInfo, accessor);
 
-        var info = TooltipData.collect(mc, pos, state, fluid, extraInfo);
+        // SÉCURITÉ JADE : Si l'icône est "Forbidden" (Air/Barrière) et qu'il n'y a pas d'items
+        // dans l'inventaire, on considère que le tooltip n'a rien à afficher de propre.
+        if (info.icon().isEmpty() && accessor.getPreviewItems().isEmpty() && extraInfo.isEmpty()) {
+            return;
+        }
 
-        // 4. Collecte finale des données pour le rendu
+        // --- 7. RENDU ---
         long timeSinceFinish = System.currentTimeMillis() - finishTime;
-
-        // --- 5. RENDU FINAL (MAJ ICI) ---
-        // On passe l'accessor au lieu du state pour que le renderer puisse voir l'icône modifiée
         TooltipOverlayRenderer.render(
                 event.getGuiGraphics(),
                 mc.font,
                 info,
-                accessor, // <--- CHANGEMENT ICI
+                accessor,
                 visualProgress,
                 timeSinceFinish,
                 mc.getWindow().getGuiScaledWidth()
