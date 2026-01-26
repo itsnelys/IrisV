@@ -1,19 +1,16 @@
 package net.opal.irisv.tooltips.providers;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.JukeboxPlayable;
-import net.minecraft.world.level.Level;
+import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.JukeboxBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.opal.irisv.api.IBlockAccessor;
 import net.opal.irisv.api.IBlockTooltipProvider;
-import net.opal.irisv.network.ClientDataCache;
 
 import java.util.List;
 
@@ -25,50 +22,54 @@ public class JukeboxTooltipProvider implements IBlockTooltipProvider {
     }
 
     @Override
-    public void addTooltip(List<String> info, BlockState state, Level level, BlockPos pos, BlockEntity be) {
-        // 1. Vérification de l'état du bloc (Synchro native Minecraft)
+    public void addTooltip(List<String> info, IBlockAccessor accessor) {
+        BlockState state = accessor.state();
+
+        // Vérification rapide via le BlockState
         boolean hasRecord = state.hasProperty(BlockStateProperties.HAS_RECORD) && state.getValue(BlockStateProperties.HAS_RECORD);
 
         if (!hasRecord) {
-            info.add("§8(Vide)");
+            info.add("§8(Empty)");
             return;
         }
 
-        ItemStack stack = ItemStack.EMPTY;
+        ItemStack recordStack = ItemStack.EMPTY;
+        CompoundTag nbt = accessor.serverData();
 
-        // 2. Tentative de récupération via la BlockEntity (Priorité Solo)
-        if (be instanceof JukeboxBlockEntity jukebox) {
-            stack = jukebox.getTheItem();
-        }
-
-        // 3. Tentative de récupération via le Cache Réseau (Priorité Multi)
-        if (stack.isEmpty()) {
-            CompoundTag data = ClientDataCache.get(pos);
-            if (data != null && data.contains("RecordItem")) {
-                // Utilisation de parseOptional pour reconstruire l'item avec ses composants 1.21
-                stack = ItemStack.parseOptional(level.registryAccess(), data.getCompound("RecordItem"));
+        // 1. Récupération de l'item (Priorité NBT Réseau, puis BlockEntity locale)
+        // Note : En 1.21, le tag peut être "RecordItem" ou "record_item" selon la source
+        if (nbt != null) {
+            String tag = nbt.contains("RecordItem") ? "RecordItem" : "record_item";
+            if (nbt.contains(tag, 10)) {
+                recordStack = ItemStack.parseOptional(accessor.level().registryAccess(), nbt.getCompound(tag));
             }
         }
 
-        // 4. Traitement et affichage du nom
-        if (!stack.isEmpty()) {
-            Component name;
-            // Récupération du composant JukeboxPlayable (Nouveauté 1.21)
-            JukeboxPlayable playable = stack.get(DataComponents.JUKEBOX_PLAYABLE);
+        if (recordStack.isEmpty() && accessor.blockEntity() instanceof JukeboxBlockEntity jukebox) {
+            recordStack = jukebox.getTheItem();
+        }
 
-            if (playable != null) {
-                // Extraction de la description de la chanson depuis les registres
-                name = playable.song().unwrap(level.registryAccess())
-                        .map(ref -> ref.value().description())
-                        .orElse(stack.getHoverName());
-            } else {
-                name = stack.getHoverName();
+        // 2. Affichage
+        if (!recordStack.isEmpty()) {
+            // Récupération de la description (Artiste - Titre)
+            List<Component> tooltipLines = recordStack.getTooltipLines(
+                    net.minecraft.world.item.Item.TooltipContext.of(accessor.level()),
+                    accessor.player(),
+                    TooltipFlag.Default.NORMAL
+            );
+
+            String[] colors = {"§c", "§6", "§e", "§a", "§b", "§d"}; // Rouge, Orange, Jaune, Vert, Bleu, Rose
+            int colorIndex = (int) ((System.currentTimeMillis() / 600) % colors.length);
+            String rainbowColor = colors[colorIndex];
+
+            if (tooltipLines.size() > 1) {
+                info.add(rainbowColor + tooltipLines.get(1).getString());
             }
 
-            info.add("Disque: §b" + name.getString());
+            // AJOUT : Affiche l'icône du disque dans la preview
+            accessor.setPreviewItems(List.of(recordStack));
         } else {
-            // Message d'attente si le disque est présent mais les données NBT non encore reçues
-            info.add("Disque: §bChargement...");
+            info.add("§8Chargement...");
         }
     }
 }

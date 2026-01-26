@@ -1,13 +1,10 @@
 package net.opal.irisv.tooltips.providers.generic;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.opal.irisv.api.IBlockTooltipProvider;
-import net.opal.irisv.network.ClientDataCache;
+import net.opal.irisv.api.IBlockAccessor;
 
 import java.util.List;
 
@@ -24,9 +21,9 @@ public class InteractionTooltipProvider implements IBlockTooltipProvider {
     }
 
     @Override
-    public void addTooltip(List<String> info, BlockState state, Level level, BlockPos pos, BlockEntity be) {
-        // Unification : récupération du cache (non utilisé ici mais cohérent avec le reste)
-        CompoundTag data = ClientDataCache.get(pos);
+    public void addTooltip(List<String> info, IBlockAccessor accessor) {
+        // On récupère le state directement depuis l'accessor
+        BlockState state = accessor.state();
 
         // 1. Composteur
         if (state.hasProperty(BlockStateProperties.LEVEL_COMPOSTER)) {
@@ -44,7 +41,7 @@ public class InteractionTooltipProvider implements IBlockTooltipProvider {
             info.add("Charges: §d" + state.getValue(BlockStateProperties.RESPAWN_ANCHOR_CHARGES) + "/4");
         }
 
-        // 4. Gâteau (Bites)
+        // 4. Gâteau (Bites / Parts mangées)
         if (state.hasProperty(BlockStateProperties.BITES)) {
             info.add("Bites: §f" + state.getValue(BlockStateProperties.BITES) + "/6");
         }

@@ -14,7 +14,7 @@ import net.neoforged.neoforge.common.NeoForge;
 
 import net.opal.irisv.option.ConfigOptions;
 import net.opal.irisv.option.ConfigReloader;
-import net.opal.irisv.tooltips.TooltipOverlay;
+import net.opal.irisv.tooltips.TooltipManager;
 
 @Mod(Irisv.MODID)
 public class Irisv {
@@ -31,7 +31,7 @@ public class Irisv {
 
         // --- Bus d'Événements NEOFORGE (NeoForge.EVENT_BUS) ---
         // Utilisé pour les événements de jeu (ticks, rendus, clics)
-        NeoForge.EVENT_BUS.register(TooltipOverlay.class);
+        NeoForge.EVENT_BUS.register(TooltipManager.class);
         NeoForge.EVENT_BUS.addListener(ConfigReloader::register);
 
         // Enregistrement du sender pour le multijoueur

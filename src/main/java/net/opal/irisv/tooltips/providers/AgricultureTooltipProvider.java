@@ -1,7 +1,6 @@
 package net.opal.irisv.tooltips.providers;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -11,7 +10,7 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.level.block.state.properties.Property;
 import net.opal.irisv.api.IBlockTooltipProvider;
-import net.opal.irisv.network.ClientDataCache;
+import net.opal.irisv.api.IBlockAccessor;
 
 import java.util.List;
 
@@ -19,15 +18,15 @@ public class AgricultureTooltipProvider implements IBlockTooltipProvider {
 
     @Override
     public boolean isApplicable(BlockState state, BlockEntity be) {
-        // S'active pour les plantes verticales, les cultures avec AGE, ou les terres labourées
         return isVerticalPlant(state) || hasAgeProperty(state) || state.hasProperty(BlockStateProperties.MOISTURE);
     }
 
     @Override
-    public void addTooltip(List<String> info, BlockState state, Level level, BlockPos pos, BlockEntity be) {
-        // Unification : récupération du cache (non utilisé par défaut pour les plantes mais présent par cohérence)
-        CompoundTag data = ClientDataCache.get(pos);
-
+    public void addTooltip(List<String> info, IBlockAccessor accessor) {
+        // Extraction des données de l'accessor
+        BlockState state = accessor.state();
+        Level level = accessor.level();
+        BlockPos pos = accessor.pos();
         Block block = state.getBlock();
 
         // 1. LOGIQUE VERTICALE (Hauteur & Potentiel)
@@ -62,7 +61,7 @@ public class AgricultureTooltipProvider implements IBlockTooltipProvider {
         }
     }
 
-    // --- MÉTHODES UTILITAIRES ---
+    // --- MÉTHODES UTILITAIRES (Inchangées, mais utilisent les bons types) ---
 
     private boolean isVerticalPlant(BlockState state) {
         return state.is(Blocks.BAMBOO) || state.is(Blocks.BAMBOO_SAPLING) ||
