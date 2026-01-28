@@ -57,12 +57,6 @@ public class TooltipOverlayRenderer {
                     int rowWidth = 16 + maxQteWidth + nameWidth2;
                     previewMaxWidth = Math.max(previewMaxWidth, rowWidth);
                 }
-
-                for (ItemStack stack : previewItems) {
-                    if (stack == null || stack.isEmpty() || stack.getItem() == Items.AIR) {
-                        continue; // On saute l'affichage si l'item est buggé
-                    }
-                }
             }
 // --- 1. CALCUL DES DIMENSIONS (previewMaxWidth / previewHeight) ---
 
@@ -231,18 +225,38 @@ public class TooltipOverlayRenderer {
         String text = formatCount(stack.getCount());
         int color = stack.getCount() > stack.getMaxStackSize() ? 0xFFAA00 : 0xFFFFFF;
 
+        // --- CALCUL DU SCALE DYNAMIQUE ---
+        // Valeur de base à 0.7f. Si le texte dépasse 3 caractères (ex: 10.5k), on réduit.
+        float baseScale = 0.7f;
+        if (text.length() > 3) {
+            // Réduit l'échelle de 0.1f par caractère supplémentaire, sans descendre sous 0.45f
+            baseScale = Math.max(0.45f, 0.7f - ((text.length() - 3) * 0.08f));
+        }
+
         gui.pose().pushPose();
-        gui.pose().translate(x + 18, y + 11, 200);
-        gui.pose().scale(0.7f, 0.7f, 1.0f); // Taille réduite
+
+        // On ajuste légèrement la position Y selon le scale pour que le texte reste en bas
+        float yOffset = 11f + (0.7f - baseScale) * 5f;
+
+        gui.pose().translate(x + 18, y + yOffset, 200);
+        gui.pose().scale(baseScale, baseScale, 1.0f);
+
         int textWidth = font.width(text);
+        // On dessine avec un décalage à gauche (textWidth) pour l'alignement à droite
         gui.drawString(font, text, -textWidth, 0, color, true);
+
         gui.pose().popPose();
     }
 
     private static String formatCount(int count) {
         if (count < 10000) return String.valueOf(count);
-        if (count < 1000000) return String.format("%.1fk", count / 10000.0);
-        return String.format("%.1fM", count / 1000000.0);
+        if (count < 1000000) {
+            double k = count / 1000.0;
+            // Si c'est un nombre pile (ex: 10k au lieu de 10.0k), on enlève la virgule
+            return k == (int)k ? (int)k + "k" : String.format("%.1fk", k);
+        }
+        double m = count / 1000000.0;
+        return m == (int)m ? (int)m + "M" : String.format("%.1fM", m);
     }
 
     private static void renderModName(GuiGraphics gui, Font font, TooltipData.BlockInfo info, int x, int y, int height) {

@@ -30,43 +30,43 @@ public class ChiseledBookshelfTooltipProvider implements IBlockTooltipProvider {
     public void addTooltip(List<String> info, IBlockAccessor accessor) {
         CompoundTag data = accessor.serverData();
 
-        // Si aucune donnée serveur, on peut quand même indiquer que c'est une bibliothèque
+        // On vérifie "Items" (format standard) ou nos données injectées
         if (data == null || !data.contains("Items", 9)) {
-            // Optionnel : info.add("§8(Vide)");
             return;
         }
 
         ListTag tagList = data.getList("Items", 10);
         List<ItemStack> allBooks = new ArrayList<>();
 
+        // Pré-chargement de tous les livres pour la preview globale
         for (int i = 0; i < tagList.size(); i++) {
-            ItemStack stack = ItemStack.parseOptional(accessor.level().registryAccess(), tagList.getCompound(i));
+            ItemStack stack = parseSmartStack(tagList.getCompound(i), accessor);
             if (!stack.isEmpty()) allBooks.add(stack);
         }
 
         boolean isLookingAtSlot = false;
         if (accessor.hit() instanceof BlockHitResult hit) {
+            // Seule la face avant permet de voir les livres
             Optional<Integer> hitSlot = getHitSlot(hit, accessor.state());
 
             if (hitSlot.isPresent()) {
-                isLookingAtSlot = true; // On regarde un slot précis
+                isLookingAtSlot = true;
                 int slot = hitSlot.get();
                 ItemStack bookStack = getItemInSlot(tagList, slot, accessor);
 
                 if (!bookStack.isEmpty()) {
                     accessor.setIcon(bookStack);
                     addBookDetails(info, bookStack, accessor);
-                    // On vide la preview pour ne pas encombrer quand on focus un livre
+
+                    // On vide la preview pour focus sur le nom du livre
                     accessor.setPreviewItems(new ArrayList<>());
                 } else {
-                    // AJOUT : Si on regarde un slot spécifique mais qu'il est vide
                     info.add("§8(Empty)");
                     accessor.setPreviewItems(new ArrayList<>());
                 }
             }
         }
 
-        // Si on ne regarde pas de slot spécifique (ex: côté du bloc), on montre tout
         if (!isLookingAtSlot) {
             if (allBooks.isEmpty()) {
                 info.add("§8(Empty)");
@@ -76,11 +76,21 @@ public class ChiseledBookshelfTooltipProvider implements IBlockTooltipProvider {
         }
     }
 
+    // Méthode cruciale pour lire le count et le slot correctement
+    private ItemStack parseSmartStack(CompoundTag itemTag, IBlockAccessor accessor) {
+        ItemStack stack = ItemStack.parseOptional(accessor.level().registryAccess(), itemTag);
+        if (!stack.isEmpty() && itemTag.contains("count")) {
+            stack.setCount(itemTag.getInt("count"));
+        }
+        return stack;
+    }
+
     private ItemStack getItemInSlot(ListTag tagList, int slot, IBlockAccessor accessor) {
         for (int i = 0; i < tagList.size(); i++) {
             CompoundTag itemTag = tagList.getCompound(i);
-            if (itemTag.getByte("Slot") == slot) {
-                return ItemStack.parseOptional(accessor.level().registryAccess(), itemTag);
+            // On vérifie le tag "Slot" que le ServerDataSender doit envoyer
+            if (itemTag.contains("Slot") && itemTag.getInt("Slot") == slot) {
+                return parseSmartStack(itemTag, accessor);
             }
         }
         return ItemStack.EMPTY;
@@ -92,20 +102,22 @@ public class ChiseledBookshelfTooltipProvider implements IBlockTooltipProvider {
                 accessor.player(),
                 TooltipFlag.Default.NORMAL
         );
+        // Si c'est un livre enchanté, on affiche le premier enchantement
         if (lines.size() > 1) {
-            String color = (stack.is(Items.WRITTEN_BOOK) || stack.is(Items.WRITABLE_BOOK)) ? "§3§o" : "§e§o";
-            info.add(color + lines.get(1).getString());
+            info.add("§e" + lines.get(1).getString());
         }
     }
 
     private Optional<Integer> getHitSlot(BlockHitResult hit, BlockState state) {
         Direction facing = state.getValue(BlockStateProperties.HORIZONTAL_FACING);
+        // Si on ne regarde pas la face avant, on ne renvoie pas de slot
         if (hit.getDirection() != facing) return Optional.empty();
 
         double x = hit.getLocation().x - hit.getBlockPos().getX();
         double y = hit.getLocation().y - hit.getBlockPos().getY();
         double z = hit.getLocation().z - hit.getBlockPos().getZ();
 
+        // Mapping des coordonnées UV vers les slots 0-5
         Vec2 rel = switch (facing) {
             case NORTH -> new Vec2(1.0F - (float)x, (float)y);
             case SOUTH -> new Vec2((float)x, (float)y);
@@ -114,7 +126,6 @@ public class ChiseledBookshelfTooltipProvider implements IBlockTooltipProvider {
             default -> Vec2.ZERO;
         };
 
-        // Calcul des lignes/colonnes selon le mapping des bibliothèques sculptées
         int row = rel.y >= 0.5F ? 0 : 1;
         int col = rel.x < 0.375F ? 0 : (rel.x < 0.6875F ? 1 : 2);
         return Optional.of(col + row * 3);

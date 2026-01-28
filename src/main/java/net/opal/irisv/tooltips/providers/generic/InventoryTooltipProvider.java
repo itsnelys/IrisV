@@ -36,24 +36,18 @@ public class InventoryTooltipProvider implements IBlockTooltipProvider {
         BlockPos masterPos = StorageUtils.getActualTarget(accessor.level(), accessor.pos(), accessor.state());
         CompoundTag data = accessor.serverData();
 
-        // Récupération du cache si vide
         if ((data == null || data.isEmpty()) && !masterPos.equals(accessor.pos())) {
             data = ClientDataCache.get(masterPos);
         }
 
         if (data != null && !data.isEmpty()) {
-            // --- CHANGEMENT ICI ---
-            // Si le serveur a envoyé le tag "Items" (notre fusion propre),
-            // on ne lit QUE ça et on arrête tout.
             if (data.contains("Items", Tag.TAG_LIST)) {
                 mergeList(data.getList("Items", Tag.TAG_COMPOUND), combinedItems, accessor);
             } else {
-                // Sinon (fallback pour les mods non gérés par notre Sender), on cherche
                 findAndMerge(data, combinedItems, accessor);
             }
         }
 
-        // 4. FALLBACK SOLO / SYNC ECHOUE
         if (combinedItems.isEmpty()) {
             BlockEntity targetBE = accessor.level().getBlockEntity(masterPos);
             if (targetBE != null) {
@@ -68,18 +62,14 @@ public class InventoryTooltipProvider implements IBlockTooltipProvider {
 
     private void findAndMerge(CompoundTag tag, Map<String, ItemStack> combinedItems, IBlockAccessor accessor) {
         if (tag == null) return;
-
-        // On cherche "Items" ou "inventory" ou "Storage" (les plus communs)
-        // Mais on ne fait plus de récursion aveugle sur TOUT.
         String[] commonKeys = {"Items", "inventory", "Inventory", "storageContents"};
         for (String key : commonKeys) {
             if (tag.contains(key, Tag.TAG_LIST)) {
                 mergeList(tag.getList(key, Tag.TAG_COMPOUND), combinedItems, accessor);
-                return; // On a trouvé une liste principale, on s'arrête pour éviter les doublons
+                return;
             }
         }
 
-        // Si vraiment on n'a rien trouvé, on explore UN SEUL niveau de profondeur
         for (String key : tag.getAllKeys()) {
             if (tag.contains(key, Tag.TAG_COMPOUND)) {
                 CompoundTag subTag = tag.getCompound(key);
@@ -104,13 +94,20 @@ public class InventoryTooltipProvider implements IBlockTooltipProvider {
             }
         }
     }
-    
+
+    // --- METHODE MISE À JOUR POUR SUPPORTER LES GROS NOMBRES ---
     private void mergeList(ListTag tagList, Map<String, ItemStack> combinedItems, IBlockAccessor accessor) {
         for (int i = 0; i < tagList.size(); i++) {
             CompoundTag itemTag = tagList.getCompound(i);
             if (itemTag.contains("id") || itemTag.contains("item")) {
+                // parseOptional va recréer l'item mais limiter le count à 99
                 ItemStack stack = ItemStack.parseOptional(accessor.level().registryAccess(), itemTag);
+
                 if (!stack.isEmpty()) {
+                    // TRUC : On écrase le count bridé par notre valeur "count" stockée en NBT
+                    if (itemTag.contains("count")) {
+                        stack.setCount(itemTag.getInt("count"));
+                    }
                     mergeStack(combinedItems, stack);
                 }
             }
@@ -118,8 +115,10 @@ public class InventoryTooltipProvider implements IBlockTooltipProvider {
     }
 
     private void mergeStack(Map<String, ItemStack> combinedItems, ItemStack stack) {
+        // On utilise l'ID de l'item + ses composants pour le regroupement
         String key = stack.getItem().toString() + stack.getComponents().hashCode();
         if (combinedItems.containsKey(key)) {
+            // .grow() fonctionne avec des int, donc il acceptera les gros chiffres
             combinedItems.get(key).grow(stack.getCount());
         } else {
             combinedItems.put(key, stack.copy());
