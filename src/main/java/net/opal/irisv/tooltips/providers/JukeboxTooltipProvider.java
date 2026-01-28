@@ -1,6 +1,7 @@
 package net.opal.irisv.tooltips.providers;
 
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
@@ -38,10 +39,11 @@ public class JukeboxTooltipProvider implements IBlockTooltipProvider {
 
         // 1. Récupération de l'item (Priorité NBT Réseau, puis BlockEntity locale)
         // Note : En 1.21, le tag peut être "RecordItem" ou "record_item" selon la source
-        if (nbt != null) {
-            String tag = nbt.contains("RecordItem") ? "RecordItem" : "record_item";
-            if (nbt.contains(tag, 10)) {
-                recordStack = ItemStack.parseOptional(accessor.level().registryAccess(), nbt.getCompound(tag));
+        if (nbt != null && nbt.contains("Items", 9)) {
+            ListTag items = nbt.getList("Items", 10);
+            if (!items.isEmpty()) {
+                // Le disque est dans notre liste universelle
+                recordStack = ItemStack.parseOptional(accessor.level().registryAccess(), items.getCompound(0));
             }
         }
 

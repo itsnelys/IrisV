@@ -33,26 +33,28 @@ public class InventoryTooltipProvider implements IBlockTooltipProvider {
     @Override
     public void addTooltip(List<String> info, IBlockAccessor accessor) {
         Map<String, ItemStack> combinedItems = new LinkedHashMap<>();
-
-        // 1. Détermination du MASTER
         BlockPos masterPos = StorageUtils.getActualTarget(accessor.level(), accessor.pos(), accessor.state());
-
-        // 2. Récupération des données serveur
         CompoundTag data = accessor.serverData();
 
-        // Si l'accessor est vide (cas de la partie 2 moddée), on force la récupération du cache au MasterPos
+        // Récupération du cache si vide
         if ((data == null || data.isEmpty()) && !masterPos.equals(accessor.pos())) {
             data = ClientDataCache.get(masterPos);
         }
 
-        // 3. Traitement des données (Recursion profonde pour les mods)
         if (data != null && !data.isEmpty()) {
-            findAndMerge(data, combinedItems, accessor);
+            // --- CHANGEMENT ICI ---
+            // Si le serveur a envoyé le tag "Items" (notre fusion propre),
+            // on ne lit QUE ça et on arrête tout.
+            if (data.contains("Items", Tag.TAG_LIST)) {
+                mergeList(data.getList("Items", Tag.TAG_COMPOUND), combinedItems, accessor);
+            } else {
+                // Sinon (fallback pour les mods non gérés par notre Sender), on cherche
+                findAndMerge(data, combinedItems, accessor);
+            }
         }
 
-        // 4. FALLBACK : Lecture directe si le serveur n'a rien envoyé (Ex: Solo ou Moddé non sync)
+        // 4. FALLBACK SOLO / SYNC ECHOUE
         if (combinedItems.isEmpty()) {
-            // On tente de lire le Master déterminé par StorageUtils
             BlockEntity targetBE = accessor.level().getBlockEntity(masterPos);
             if (targetBE != null) {
                 readDirectlyFromBE(accessor, masterPos, targetBE, combinedItems);
@@ -61,6 +63,33 @@ public class InventoryTooltipProvider implements IBlockTooltipProvider {
 
         if (!combinedItems.isEmpty()) {
             accessor.setPreviewItems(new ArrayList<>(combinedItems.values()));
+        }
+    }
+
+    private void findAndMerge(CompoundTag tag, Map<String, ItemStack> combinedItems, IBlockAccessor accessor) {
+        if (tag == null) return;
+
+        // On cherche "Items" ou "inventory" ou "Storage" (les plus communs)
+        // Mais on ne fait plus de récursion aveugle sur TOUT.
+        String[] commonKeys = {"Items", "inventory", "Inventory", "storageContents"};
+        for (String key : commonKeys) {
+            if (tag.contains(key, Tag.TAG_LIST)) {
+                mergeList(tag.getList(key, Tag.TAG_COMPOUND), combinedItems, accessor);
+                return; // On a trouvé une liste principale, on s'arrête pour éviter les doublons
+            }
+        }
+
+        // Si vraiment on n'a rien trouvé, on explore UN SEUL niveau de profondeur
+        for (String key : tag.getAllKeys()) {
+            if (tag.contains(key, Tag.TAG_COMPOUND)) {
+                CompoundTag subTag = tag.getCompound(key);
+                for (String subKey : commonKeys) {
+                    if (subTag.contains(subKey, Tag.TAG_LIST)) {
+                        mergeList(subTag.getList(subKey, Tag.TAG_COMPOUND), combinedItems, accessor);
+                        return;
+                    }
+                }
+            }
         }
     }
 
@@ -75,26 +104,7 @@ public class InventoryTooltipProvider implements IBlockTooltipProvider {
             }
         }
     }
-
-    private void findAndMerge(CompoundTag tag, Map<String, ItemStack> combinedItems, IBlockAccessor accessor) {
-        if (tag == null) return;
-
-        // "Items" est le tag standard
-        if (tag.contains("Items", Tag.TAG_LIST)) {
-            mergeList(tag.getList("Items", Tag.TAG_COMPOUND), combinedItems, accessor);
-        }
-
-        // Récursion profonde pour les noms de tags spécifiques aux mods (storageContents, inventory, etc.)
-        for (String key : tag.getAllKeys()) {
-            if (key.equals("Items")) continue;
-            if (tag.contains(key, Tag.TAG_COMPOUND)) {
-                findAndMerge(tag.getCompound(key), combinedItems, accessor);
-            } else if (tag.contains(key, Tag.TAG_LIST)) {
-                mergeList(tag.getList(key, Tag.TAG_COMPOUND), combinedItems, accessor);
-            }
-        }
-    }
-
+    
     private void mergeList(ListTag tagList, Map<String, ItemStack> combinedItems, IBlockAccessor accessor) {
         for (int i = 0; i < tagList.size(); i++) {
             CompoundTag itemTag = tagList.getCompound(i);

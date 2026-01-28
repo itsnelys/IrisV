@@ -2,7 +2,6 @@ package net.opal.irisv.tooltips;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ClipContext;
@@ -14,6 +13,7 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.client.event.RenderGuiEvent;
 import net.opal.irisv.api.IBlockAccessor;
 import net.opal.irisv.api.IBlockTooltipProvider;
+import net.opal.irisv.commun.utils.StorageUtils;
 import net.opal.irisv.mixin.DestroyAccessor;
 import net.opal.irisv.network.ClientDataCache;
 import net.opal.irisv.option.ConfigOptions;
@@ -32,10 +32,10 @@ public class TooltipManager {
     public static void onRenderGui(RenderGuiEvent.Post event) {
         if (!ConfigOptions.getInstance().enableBlockTooltipOverlay) return;
 
-
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null || mc.screen != null || mc.gameMode == null) return;
 
+        // 1. RAYCAST
         HitResult hitResult = mc.level.clip(new ClipContext(
                 mc.player.getEyePosition(1f),
                 mc.player.getEyePosition(1f).add(mc.player.getViewVector(1f).scale(5)),
@@ -53,88 +53,54 @@ public class TooltipManager {
         BlockPos pos = blockHit.getBlockPos();
         BlockState originalState = mc.level.getBlockState(pos);
 
-        // --- 1. SÉCURITÉ "CLEAN DESTRUCTION" (Comme Jade) ---
-        // Si le bloc est de l'air ou si la progression de minage est terminée, on stoppe tout de suite.
-        // Ça évite de voir le tooltip pendant 1 ou 2 frames alors que le bloc a disparu.
+        // --- SÉCURITÉ "CLEAN DESTRUCTION" ---
         var gameMode = (DestroyAccessor) mc.gameMode;
         float progress = gameMode.getDestroyProgress();
 
         if (originalState.isAir() || progress >= 1.0f) {
             ClientDataCache.remove(pos);
             updateProgress(null, 0, null);
-            return; // ON ARRÊTE LE RENDU ICI
+            return; // Coupe le rendu instantanément
         }
 
-        // --- 1. DONNÉES DE BASE DU BLOC VISÉ ---
-        BlockEntity originalBE = mc.level.getBlockEntity(pos);
-        var fluid = mc.level.getFluidState(pos);
+        // --- LOGIQUE DE REDIRECTION (MASTER/SLAVE) ---
+        // On utilise StorageUtils pour pointer immédiatement vers le bloc maître (Vanilla ou Moddé)
+        BlockPos targetPos = StorageUtils.getActualTarget(mc.level, pos, originalState);
+        CompoundTag data = ClientDataCache.get(targetPos);
 
-        // --- 2. PROGRESSION DE CASSAGE ---
-        updateProgress(pos, gameMode.getDestroyProgress(), originalState);
+        BlockState finalState = (targetPos.equals(pos)) ? originalState : mc.level.getBlockState(targetPos);
+        BlockEntity finalBE = (targetPos.equals(pos)) ? mc.level.getBlockEntity(pos) : mc.level.getBlockEntity(targetPos);
 
-        // --- 3. LOGIQUE DE REDIRECTION (MASTER/SLAVE) ---
-        BlockPos targetPos = pos;
-        CompoundTag data = ClientDataCache.get(pos);
-        BlockEntity finalBE = originalBE;
-        BlockState finalState = originalState;
+        // Mise à jour de la barre de progression
+        updateProgress(pos, progress, originalState);
 
-        // Si le bloc visé est vide, on cherche un Master autour
-        if (data == null || data.isEmpty()) {
-            for (Direction dir : Direction.values()) {
-                BlockPos nPos = pos.relative(dir);
-                CompoundTag neighborData = ClientDataCache.get(nPos);
-
-                if (neighborData != null && !neighborData.isEmpty()) {
-                    // On vérifie si c'est bien un inventaire (Items ou inventory)
-                    if (neighborData.contains("Items") || neighborData.contains("inventory") || neighborData.contains("Storage")) {
-                        data = neighborData;
-                        targetPos = nPos;
-                        finalBE = mc.level.getBlockEntity(nPos);
-                        finalState = mc.level.getBlockState(nPos);
-                        break;
-                    }
-                }
-            }
-        }
-
-        // --- 4. INITIALISATION DE L'ACCESSOR ---
+        // --- INITIALISATION ACCESSOR ---
         ItemStack[] iconContainer = new ItemStack[]{ItemStack.EMPTY};
         List<ItemStack>[] inventoryContainer = (List<ItemStack>[]) new List[]{new ArrayList<>()};
         String[] titleContainer = new String[]{null};
 
         IBlockAccessor accessor = new IBlockAccessor(
-                mc.level,
-                mc.player,
-                targetPos, // On pointe vers le Master
-                finalState,
-                finalBE,
-                data,
-                hitResult,
-                iconContainer,
-                inventoryContainer,
-                titleContainer
+                mc.level, mc.player, targetPos, finalState, finalBE,
+                data, hitResult, iconContainer, inventoryContainer, titleContainer
         );
 
-        // --- 5. APPEL DES PROVIDERS ---
+        // --- APPEL DES PROVIDERS ---
         List<String> extraInfo = new ArrayList<>();
         for (IBlockTooltipProvider provider : TooltipProviderRegistry.getProviders()) {
-            // IMPORTANT: On utilise finalState et finalBE pour que le provider
-            // reconnaisse que le bloc est un inventaire même si on regarde l'esclave.
             if (provider.isApplicable(finalState, finalBE)) {
                 provider.addTooltip(extraInfo, accessor);
             }
         }
 
-// --- 6. COLLECTE ET FILTRAGE FINAL ---
-        var info = TooltipData.collect(mc, pos, finalState, fluid, extraInfo, accessor);
+        // --- COLLECTE ET FILTRAGE FINAL ---
+        var info = TooltipData.collect(mc, pos, finalState, mc.level.getFluidState(pos), extraInfo, accessor);
 
-        // SÉCURITÉ JADE : Si l'icône est "Forbidden" (Air/Barrière) et qu'il n'y a pas d'items
-        // dans l'inventaire, on considère que le tooltip n'a rien à afficher de propre.
+        // Si l'icône est interdite (Air/Barrière) et qu'il n'y a rien d'autre, on ne dessine rien.
         if (info.icon().isEmpty() && accessor.getPreviewItems().isEmpty() && extraInfo.isEmpty()) {
             return;
         }
 
-        // --- 7. RENDU ---
+        // --- RENDU ---
         long timeSinceFinish = System.currentTimeMillis() - finishTime;
         TooltipOverlayRenderer.render(
                 event.getGuiGraphics(),
@@ -147,7 +113,7 @@ public class TooltipManager {
         );
     }
 
-    private static void updateProgress(BlockPos pos, float currentProgress, net.minecraft.world.level.block.state.BlockState state) {
+    private static void updateProgress(BlockPos pos, float currentProgress, BlockState state) {
         long currentTime = System.currentTimeMillis();
         float deltaTime = (currentTime - lastTimeMillis) / 1000f;
         lastTimeMillis = currentTime;

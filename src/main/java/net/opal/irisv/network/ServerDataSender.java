@@ -7,6 +7,7 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.ChestBlock;
 import net.minecraft.world.level.block.entity.*;
@@ -16,7 +17,6 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.capabilities.Capabilities;
-import net.neoforged.neoforge.event.level.BlockEvent;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 import net.neoforged.neoforge.items.IItemHandler;
 
@@ -39,62 +39,114 @@ public class ServerDataSender {
             BlockState state = player.level().getBlockState(pos);
             UUID uuid = player.getUUID();
 
-            if (LAST_POS.containsKey(uuid)) {
-                sendRawData(player, LAST_POS.get(uuid), new CompoundTag());
-                LAST_POS.remove(uuid);
-                LAST_DATA_HASH.remove(uuid);
-            }
 
             if (state.is(Blocks.ENDER_CHEST)) {
                 handleEnderChest(player, uuid, pos);
                 return;
             }
 
-            // 1. RECHERCHE DU VOISIN (Basée sur le bloc, pas sur les items)
+            // 1. RECHERCHE DU VOISIN
             BlockEntity targetBE = player.level().getBlockEntity(pos);
             BlockEntity neighborBE = getNeighborChest(player, pos, state);
 
-            // 2. DÉTERMINATION DU MASTER (Source des données)
-            // Si on regarde un bloc sans BE (esclave moddé), on utilise le voisin
-            BlockEntity masterBE = (targetBE != null) ? targetBE : neighborBE;
-            if (masterBE == null) return;
 
+
+
+
+// 2. DÉTERMINATION DU MASTER UNIQUE (Ton système de Pivot stable)
+            BlockEntity masterBE;
+            if (neighborBE != null) {
+                BlockPos posA = pos;
+                BlockPos posB = neighborBE.getBlockPos();
+
+                // On élit le Master selon les coordonnées pour avoir un point fixe (Pivot)
+                if (posA.getX() < posB.getX() || (posA.getX() == posB.getX() && posA.getZ() < posB.getZ())) {
+                    masterBE = targetBE;
+                } else {
+                    masterBE = neighborBE;
+                }
+            } else {
+                masterBE = targetBE;
+            }
+
+            if (masterBE == null) return;
             BlockPos masterPos = masterBE.getBlockPos();
 
-            // 3. CALCUL DU HASH (Stable : basé sur le Master)
+            // Log de stabilité pour vérifier que le Master ne change pas quand on bouge la souris
+            System.out.println("[IRIS-DEBUG] Pointé: " + pos + " | Master Officiel: " + masterPos);
+
+            // 3. CALCUL DU HASH (Basé sur le Master stable élu)
             int currentHash = calculateGlobalHash(player, masterPos, player.level().getBlockState(masterPos), masterBE, neighborBE);
 
-            // 4. MISE À JOUR (On compare masterPos pour éviter les sauts au lancement)
             if (shouldUpdate(uuid, masterPos, currentHash)) {
-                CompoundTag data = masterBE.saveWithFullMetadata(player.level().registryAccess());
+                // 1. On récupère les données du bloc pointé
+                CompoundTag data = targetBE.saveWithFullMetadata(player.level().registryAccess());
 
-                // Fusion Double Coffre
-                if (neighborBE != null) {
-                    CompoundTag neighborData = neighborBE.saveWithFullMetadata(player.level().registryAccess());
-                    ListTag combined = new ListTag();
-                    ListTag first = data.getList("Items", 10);
-                    ListTag second = neighborData.getList("Items", 10);
+                // --- NETTOYAGE AGRESSIF (Anti-doublon Master) ---
+                // On supprime TOUTES les clés d'inventaire connues pour repartir de zéro
+                data.remove("Items");      // Vanilla / Common
+                data.remove("inventory");  // Sophisticated / Forge
+                data.remove("Inventory");  // Divers mods
+                data.remove("storage");    // Divers mods
 
-                    // Respect de l'ordre Vanilla
-                    if (state.hasProperty(ChestBlock.TYPE)) {
-                        boolean isRight = state.getValue(ChestBlock.TYPE) == ChestType.RIGHT;
-                        combined.addAll(isRight ? first : second);
-                        combined.addAll(isRight ? second : first);
+                ListTag combined = new ListTag();
+                IItemHandler handlerTarget = player.level().getCapability(Capabilities.ItemHandler.BLOCK, pos, state, targetBE, null);
+
+                // --- LOGIQUE DE FUSION ---
+                if (neighborBE != null && state.hasProperty(ChestBlock.TYPE)) {
+                    // CAS VANILLA DOUBLE
+                    ChestType type = state.getValue(ChestBlock.TYPE);
+                    if (type != ChestType.SINGLE) {
+                        IItemHandler handlerNeighbor = player.level().getCapability(Capabilities.ItemHandler.BLOCK, neighborBE.getBlockPos(), null, neighborBE, null);
+
+                        if (handlerTarget != null && handlerTarget.getSlots() >= 54) {
+                            // Si le handler est déjà fusionné (mod de compatibilité)
+                            addItemsToList(handlerTarget, combined, player);
+                        } else if (handlerTarget != null && handlerNeighbor != null) {
+                            // Fusion manuelle GAUCHE + DROITE
+                            boolean isRight = type == ChestType.RIGHT;
+                            IItemHandler first = isRight ? handlerNeighbor : handlerTarget;
+                            IItemHandler second = isRight ? handlerTarget : handlerNeighbor;
+                            addItemsToList(first, combined, player);
+                            addItemsToList(second, combined, player);
+                        }
                     } else {
-                        combined.addAll(first);
-                        combined.addAll(second);
+                        if (handlerTarget != null) addItemsToList(handlerTarget, combined, player);
                     }
-                    data.put("Items", combined);
+                }
+                else if (neighborBE != null && handlerTarget != null) {
+                    // CAS MODDÉ DOUBLE
+                    IItemHandler handlerNeighbor = player.level().getCapability(Capabilities.ItemHandler.BLOCK, neighborBE.getBlockPos(), null, neighborBE, null);
+                    if (handlerTarget == handlerNeighbor || handlerTarget.getSlots() >= 54) {
+                        addItemsToList(handlerTarget, combined, player);
+                    } else {
+                        addItemsToList(handlerTarget, combined, player);
+                    }
+                }
+                else if (handlerTarget != null) {
+                    // BLOC ISOLÉ (On recrée un tag propre comme tu as fait)
+                    CompoundTag cleanData = new CompoundTag();
+                    if (data.contains("id")) cleanData.put("id", data.get("id"));
+                    if (data.contains("CustomName")) cleanData.put("CustomName", data.get("CustomName"));
+
+                    addItemsToList(handlerTarget, combined, player);
+                    data = cleanData;
                 }
 
-                // SYNC : On envoie à la position regardée (pour le tooltip)
+                // 3. Injection finale de la liste UNIQUE
+                data.put("Items", combined);
+
+                // --- 4. ENVOI SYNCHRONISÉ (La correction est ici) ---
+                // On envoie au bloc que l'on regarde actuellement
                 sendRawData(player, pos, data);
 
-                // Si on est sur l'esclave, on envoie aussi au master pour peupler le cache client
-                if (!pos.equals(masterPos)) {
-                    sendRawData(player, masterPos, data);
+                // Si c'est un double coffre, on force l'envoi au voisin AUSSI
+                // pour que les deux moitiés soient identiques côté client.
+                if (neighborBE != null) {
+                    sendRawData(player, neighborBE.getBlockPos(), data);
                 }
 
+                // On met à jour le cache uniquement APRÈS avoir envoyé aux deux
                 updateCache(uuid, masterPos, currentHash);
             }
         } else {
@@ -103,40 +155,67 @@ public class ServerDataSender {
         }
     }
 
+    private static void addItemsToList(IItemHandler handler, ListTag list, ServerPlayer player) {
+        for (int i = 0; i < handler.getSlots(); i++) {
+            ItemStack stack = handler.getStackInSlot(i);
+            if (!stack.isEmpty()) {
+                CompoundTag itemTag = (CompoundTag) stack.save(player.level().registryAccess());
+                // INDISPENSABLE pour Chiseled Bookshelf et le tri
+                itemTag.putByte("Slot", (byte) i);
+                list.add(itemTag);
+            }
+        }
+    }
+
     private static BlockEntity getNeighborChest(ServerPlayer player, BlockPos pos, BlockState state) {
-        // 1. VANILLA : On garde la logique ChestType (Indispensable pour les doubles coffres normaux)
+        // 1. VANILLA : Correction de la détection
         if (state.hasProperty(ChestBlock.TYPE) && state.getValue(ChestBlock.TYPE) != ChestType.SINGLE) {
-            Direction facing = state.getValue(ChestBlock.FACING);
-            Direction side = (state.getValue(ChestBlock.TYPE) == ChestType.LEFT) ? facing.getClockWise() : facing.getCounterClockWise();
-            return player.level().getBlockEntity(pos.relative(side));
+            ChestType type = state.getValue(ChestBlock.TYPE);
+            for (Direction dir : Direction.Plane.HORIZONTAL) {
+                BlockPos nPos = pos.relative(dir);
+                BlockState nState = player.level().getBlockState(nPos);
+
+                // On vérifie si le voisin est un coffre et s'il est de l'autre type (LEFT si on est RIGHT, etc.)
+                if (nState.is(state.getBlock()) && nState.hasProperty(ChestBlock.TYPE)) {
+                    ChestType nType = nState.getValue(ChestBlock.TYPE);
+                    if (nType != ChestType.SINGLE && nType != type) {
+                        return player.level().getBlockEntity(nPos);
+                    }
+                }
+            }
         }
 
-        // 2. MODS : Jade utilise l'identité des instances
+        // 2. MODS (Sophisticated Storage / Capabilities)
         BlockEntity currentBE = player.level().getBlockEntity(pos);
         if (currentBE == null) return null;
 
         var currentHandler = player.level().getCapability(Capabilities.ItemHandler.BLOCK, pos, state, currentBE, null);
-        if (currentHandler == null) return null;
-
-        for (Direction dir : Direction.Plane.HORIZONTAL) {
-            BlockPos nPos = pos.relative(dir);
-            BlockEntity nBE = player.level().getBlockEntity(nPos);
-            if (nBE != null) {
-                var nHandler = player.level().getCapability(Capabilities.ItemHandler.BLOCK, nPos, player.level().getBlockState(nPos), nBE, null);
-                // SI LES DEUX HANDLERS SONT LE MÊME OBJET EN MÉMOIRE = Double coffre moddé
-                if (nHandler == currentHandler) return nBE;
+        if (currentHandler != null) {
+            for (Direction dir : Direction.Plane.HORIZONTAL) {
+                BlockPos nPos = pos.relative(dir);
+                BlockEntity nBE = player.level().getBlockEntity(nPos);
+                if (nBE != null) {
+                    var nHandler = player.level().getCapability(Capabilities.ItemHandler.BLOCK, nPos, player.level().getBlockState(nPos), nBE, null);
+                    if (nHandler != null && nHandler == currentHandler) return nBE;
+                }
             }
         }
         return null;
     }
 
     private static int calculateGlobalHash(ServerPlayer player, BlockPos pos, BlockState state, BlockEntity be, BlockEntity neighbor) {
-        int h = state.hashCode();
-        h += getBEInventoryHash(player, pos, state, be);
+        int h1 = getBEInventoryHash(player, pos, state, be);
+        int h2 = 0;
+
         if (neighbor != null) {
-            h += getBEInventoryHash(player, neighbor.getBlockPos(), neighbor.getBlockState(), neighbor) * 31;
+            // On ne hash le voisin que si c'est un VRAI double coffre Vanilla
+            if (state.hasProperty(ChestBlock.TYPE) && state.getValue(ChestBlock.TYPE) != ChestType.SINGLE) {
+                h2 = getBEInventoryHash(player, neighbor.getBlockPos(), neighbor.getBlockState(), neighbor);
+            }
+            // Pour les mods, si c'est le même inventaire, le hash h1 suffit déjà !
         }
-        return h;
+
+        return (h1 + h2) ^ state.getBlock().hashCode();
     }
 
     private static int getBEInventoryHash(ServerPlayer player, BlockPos pos, BlockState state, BlockEntity be) {

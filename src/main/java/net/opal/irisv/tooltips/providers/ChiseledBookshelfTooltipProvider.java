@@ -55,10 +55,7 @@ public class ChiseledBookshelfTooltipProvider implements IBlockTooltipProvider {
 
                 if (!bookStack.isEmpty()) {
                     accessor.setIcon(bookStack);
-                    String color = getBookColor(bookStack);
-                    info.add(color + bookStack.getHoverName().getString());
                     addBookDetails(info, bookStack, accessor);
-
                     // On vide la preview pour ne pas encombrer quand on focus un livre
                     accessor.setPreviewItems(new ArrayList<>());
                 } else {
@@ -89,13 +86,6 @@ public class ChiseledBookshelfTooltipProvider implements IBlockTooltipProvider {
         return ItemStack.EMPTY;
     }
 
-    private String getBookColor(ItemStack stack) {
-        if (stack.is(Items.ENCHANTED_BOOK)) return "§e";
-        if (stack.is(Items.WRITTEN_BOOK)) return "§b";
-        if (stack.is(Items.WRITABLE_BOOK)) return "§6";
-        return "§7§o";
-    }
-
     private void addBookDetails(List<String> info, ItemStack stack, IBlockAccessor accessor) {
         var lines = stack.getTooltipLines(
                 net.minecraft.world.item.Item.TooltipContext.of(accessor.level()),
@@ -103,7 +93,7 @@ public class ChiseledBookshelfTooltipProvider implements IBlockTooltipProvider {
                 TooltipFlag.Default.NORMAL
         );
         if (lines.size() > 1) {
-            String color = (stack.is(Items.WRITTEN_BOOK) || stack.is(Items.WRITABLE_BOOK)) ? "§3§o" : "§7§o";
+            String color = (stack.is(Items.WRITTEN_BOOK) || stack.is(Items.WRITABLE_BOOK)) ? "§3§o" : "§e§o";
             info.add(color + lines.get(1).getString());
         }
     }

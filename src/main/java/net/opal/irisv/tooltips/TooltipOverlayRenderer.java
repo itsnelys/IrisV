@@ -47,12 +47,12 @@ public class TooltipOverlayRenderer {
                 // Premier passage pour trouver la plus grande largeur de quantité (pour l'alignement à droite)
                 for (ItemStack stack : previewItems) {
                     String qteText = formatCount(stack.getCount()) + "x";
-                    maxQteWidth = Math.max(maxQteWidth, (int)(font.width(qteText) * 0.7f));
+                    maxQteWidth = Math.max(maxQteWidth, (int) (font.width(qteText) * 0.7f));
                 }
 
                 // Deuxième passage pour la largeur totale de la boîte
                 for (ItemStack stack : previewItems) {
-                    int nameWidth2 = (int)(font.width(stack.getHoverName().getString()) * 0.7f);
+                    int nameWidth2 = (int) (font.width(stack.getHoverName().getString()) * 0.7f);
                     // Largeur = Icône(10) + Espace(2) + maxQteWidth + Espace(4) + Nom
                     int rowWidth = 16 + maxQteWidth + nameWidth2;
                     previewMaxWidth = Math.max(previewMaxWidth, rowWidth);
@@ -64,21 +64,34 @@ public class TooltipOverlayRenderer {
                     }
                 }
             }
-            // --- MODE GRILLE COMPLÈTE ---
+// --- 1. CALCUL DES DIMENSIONS (previewMaxWidth / previewHeight) ---
+
+// --- MODE GRILLE (Soit on a CTRL, soit il y a 9 items ou moins) ---
             else if (hasCtrl || itemCount <= 9) {
-                int cols = Math.min(itemCount, 9);
-                int rows = (int) Math.ceil(itemCount / 9.0);
+                // On ne dessine jamais plus de 54 icônes (6 lignes)
+                int maxIcons = hasCtrl ? Math.min(itemCount, 54) : itemCount;
+
+                int cols = Math.min(maxIcons, 9);
+                int rows = (maxIcons + 8) / 9; // Calcul de lignes sans Math.ceil (plus propre)
+
                 previewMaxWidth = cols * 18;
-                previewHeight = (rows * 18) + 4;
+                previewHeight = rows * 18 + 4;
+
+                // AJUSTEMENT : Si on a CTRL et qu'on dépasse 54, on ajoute la place du texte "+ encore"
+                if (hasCtrl && itemCount > 54) {
+                    previewHeight += 12; // Juste assez pour la ligne orange
+                }
             }
-            // --- MODE HYBRIDE ---
+// --- MODE HYBRIDE (Plus de 9 items et PAS de CTRL) ---
             else {
+                // Ici on affiche toujours 1 ligne de 9 items + le texte "[+ X items... CTRL]"
                 String surplusText = "[+ " + (itemCount - 9) + " items... CTRL]";
-                previewMaxWidth = Math.max(9 * 18, font.width(surplusText));
-                previewHeight = 18 + 14 + 4;
+
+                previewMaxWidth = Math.max(9 * 18, (int) (font.width(surplusText) * 0.8f));
+                // 18 (ligne items) + 12 (ligne texte) + 4 (marge) = 34
+                previewHeight = 18 + 12 + 4;
             }
         }
-
 // --- 3. DIMENSIONS FINALES ---
 // Marge de +6 pour l'effet compact Photo 3
         int width = Math.max(26 + baseContentWidth + 6, 26 + previewMaxWidth + 6);
@@ -137,7 +150,7 @@ public class TooltipOverlayRenderer {
             int maxQteWidth = 0;
             for (ItemStack s : items) {
                 String t = formatCount(s.getCount()) + "x";
-                maxQteWidth = Math.max(maxQteWidth, (int)(font.width(t) * 0.7f));
+                maxQteWidth = Math.max(maxQteWidth, (int) (font.width(t) * 0.7f));
             }
 
             for (ItemStack stack : items) {
@@ -152,7 +165,7 @@ public class TooltipOverlayRenderer {
                 // B. Zone Quantité (Alignement dynamique à DROITE)
                 String countText = formatCount(stack.getCount()) + "x";
                 String countColor = stack.getCount() > stack.getMaxStackSize() ? "§6" : "§7";
-                int currentQteWidth = (int)(font.width(countText) * 0.7f);
+                int currentQteWidth = (int) (font.width(countText) * 0.7f);
 
                 pose.pushPose();
                 int qteX = x + 38 + (maxQteWidth - currentQteWidth);
@@ -172,29 +185,46 @@ public class TooltipOverlayRenderer {
                 renderY += 10; // RÉDUCTION : Passage de 12px à 10px
             }
         }
-        // --- 2. MODE GRILLE (5+ ou CTRL) ---
+// --- 2. MODE GRILLE (5+ ou CTRL) ---
         else {
-            int maxToShow = hasCtrl ? count : Math.min(count, 9);
+            // Limitation visuelle : on ne dessine jamais plus de 54 icônes (6 lignes de 9)
+            int maxToRender = hasCtrl ? Math.min(count, 54) : Math.min(count, 9);
+
             int slotX = 0;
-            for (int i = 0; i < maxToShow; i++) {
+            for (int i = 0; i < maxToRender; i++) {
                 ItemStack stack = items.get(i);
                 int dx = x + 26 + (slotX * 18);
                 gui.renderFakeItem(stack, dx, renderY);
                 renderCustomItemDecorations(gui, font, stack, dx, renderY);
-                if (++slotX >= 9) { slotX = 0; renderY += 18; }
+
+                if (++slotX >= 9) {
+                    slotX = 0;
+                    renderY += 18;
+                }
             }
 
+            // Calcul dynamique de la position du texte sous la dernière ligne d'items
+            int textY = (slotX == 0) ? renderY : renderY + 18;
+
+            // CAS 1 : Pas de CTRL -> On affiche le surplus par rapport à 9
             if (!hasCtrl && count > 9) {
-                int textY = (slotX == 0) ? renderY : renderY + 18;
                 pose.pushPose();
                 pose.translate(x + 26, textY + 2, 0);
                 pose.scale(0.8f, 0.8f, 1.0f);
                 gui.drawString(font, "§8[+ " + (count - 9) + " items... CTRL]", 0, 0, 0xFFFFFF, true);
                 pose.popPose();
             }
+            // CAS 2 : Avec CTRL -> On affiche le surplus par rapport à 54
+            else if (hasCtrl && count > 54) {
+                pose.pushPose();
+                pose.translate(x + 26, textY + 2, 0);
+                pose.scale(0.8f, 0.8f, 1.0f);
+                // Ici count est le nombre total d'items dans la ListTag
+                gui.drawString(font, "§6[+ " + (count - 54) + " encore]", 0, 0, 0xFFFFFF, true);
+                pose.popPose();
+            }
         }
     }
-
     private static void renderCustomItemDecorations(GuiGraphics gui, Font font, ItemStack stack, int x, int y) {
         if (stack.getCount() <= 1 && !stack.isBarVisible()) return;
 
@@ -277,17 +307,18 @@ public class TooltipOverlayRenderer {
     }
 
     private static void renderTool(GuiGraphics gui, Font font, ItemStack toolIcon, BlockState state, ItemStack held, boolean alreadyHoldingCorrect, int tx, int ty) {
-        String status = "§c✘"; // Par défaut : Rouge
+        String status = "";
         boolean isCreative = Minecraft.getInstance().player.isCreative();
 
-        // On ne calcule le statut de l'outil QUE si on n'a pas une icône d'override (comme un livre)
-        // car on ne "mine" pas un livre avec une pioche.
-        boolean isBlockIcon = toolIcon.getItem() == state.getBlock().asItem();
+        // La correction est ici : on vérifie si l'icône est un outil de minage (DiggerItem)
+        // ou des cisailles. Si c'est un Livre ou un Disque, ça ne rentrera pas dedans.
+        boolean isMiningTool = toolIcon.getItem() instanceof DiggerItem || toolIcon.getItem() instanceof ShearsItem;
 
         if (isCreative) {
-            status = "§a✔";
-        } else if (isBlockIcon) {
-            // Logique de minage standard
+            // En créatif, on affiche le ✔ seulement si c'est un outil de minage
+            if (isMiningTool) status = "§a✔";
+        } else if (isMiningTool) {
+            // Logique de minage standard (Survie)
             boolean isCorrectType = isSameToolType(toolIcon.getItem(), held.getItem());
             boolean isShearsRequired = toolIcon.getItem() instanceof ShearsItem;
 
@@ -301,21 +332,20 @@ public class TooltipOverlayRenderer {
                     status = canDropWithHeld ? "§a✔" : "§c✘";
                 } else if (canDropWithHeld && !holdingAnyTool) {
                     status = "§e!";
+                } else {
+                    status = "§c✘";
                 }
             }
-        } else {
-            // Si c'est un item d'override (Livre, Disque, etc.), on n'affiche pas de X ou de V
-            status = "";
         }
 
-        // --- RENDU (Inchangé) ---
+        // --- RENDU ---
         gui.pose().pushPose();
         gui.pose().translate(tx, ty, 0);
         gui.pose().scale(0.75f, 0.75f, 0.75f);
         gui.renderItem(toolIcon, 0, 0);
         gui.pose().popPose();
 
-        if (toolIcon.getItem() != Items.BARRIER) {
+        if (!status.isEmpty() && toolIcon.getItem() != Items.BARRIER) {
             gui.pose().pushPose();
             if (status.equals("§e!")) {
                 float scale = 0.8f;

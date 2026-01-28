@@ -14,31 +14,35 @@ public class StorageUtils {
      * CORRECTION : On se base sur la structure des blocs, pas sur leur contenu.
      */
     public static BlockPos getActualTarget(Level level, BlockPos pos, BlockState state) {
-        // 1. Logique Vanilla (Priorité absolue)
+        // 1. SOPHISTICATED STORAGE (Priorité)
+        for (net.minecraft.world.level.block.state.properties.Property<?> prop : state.getProperties()) {
+            if (prop.getName().equals("is_left")) {
+                boolean isLeft = (Boolean) state.getValue(prop);
+                if (isLeft) return pos; // C'est le Master
+
+                // Si c'est la partie droite, le Master est à "gauche" selon le Facing
+                if (state.hasProperty(net.minecraft.world.level.block.HorizontalDirectionalBlock.FACING)) {
+                    Direction facing = state.getValue(net.minecraft.world.level.block.HorizontalDirectionalBlock.FACING);
+                    return pos.relative(facing.getCounterClockWise());
+                }
+            }
+        }
+
+        // 2. VANILLA
         if (state.hasProperty(ChestBlock.TYPE)) {
             ChestType type = state.getValue(ChestBlock.TYPE);
             if (type == ChestType.RIGHT && state.hasProperty(ChestBlock.FACING)) {
                 return pos.relative(state.getValue(ChestBlock.FACING).getCounterClockWise());
             }
-            if (type == ChestType.LEFT) return pos;
         }
 
-        // 2. Logique Modded / Connectée (Structurelle)
-        // Si on est sur un bloc qui peut être double, on définit arbitrairement
-        // une règle pour que le Master soit toujours le même (ex: celui avec le X ou Z le plus petit).
+        // 3. FALLBACK GÉNÉRIQUE (Règle du X/Z min)
         for (Direction dir : Direction.Plane.HORIZONTAL) {
             BlockPos nPos = pos.relative(dir);
-            BlockState nState = level.getBlockState(nPos);
-
-            if (nState.getBlock() == state.getBlock()) {
-                // Règle de stabilité : Le bloc avec les coordonnées les plus petites est le Maître
-                // Cela permet de trouver le Master même si le coffre est VIDE ou au LANCEMENT de la map.
-                if (nPos.getX() < pos.getX() || nPos.getZ() < pos.getZ()) {
-                    return nPos;
-                }
+            if (level.getBlockState(nPos).getBlock() == state.getBlock()) {
+                if (nPos.getX() < pos.getX() || nPos.getZ() < pos.getZ()) return nPos;
             }
         }
-
         return pos;
     }
 }
