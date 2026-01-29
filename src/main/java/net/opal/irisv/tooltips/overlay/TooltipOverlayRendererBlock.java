@@ -16,7 +16,7 @@ public class TooltipOverlayRendererBlock {
         var pose = gui.pose();
         int renderY = y + 2;
 
-// --- 1. MODE LISTE (1 à 4 items) ---
+        // --- 1. MODE LISTE (1 à 4 items) ---
         if (count <= 4 && !hasCtrl) {
             int maxQteWidth = 0;
             for (ItemStack s : items) {
@@ -56,7 +56,7 @@ public class TooltipOverlayRendererBlock {
                 renderY += 10; // RÉDUCTION : Passage de 12px à 10px
             }
         }
-// --- 2. MODE GRILLE (5+ ou CTRL) ---
+        // --- 2. MODE GRILLE (5+ ou CTRL) ---
         else {
             // Limitation visuelle : on ne dessine jamais plus de 54 icônes (6 lignes de 9)
             int maxToRender = hasCtrl ? Math.min(count, 54) : Math.min(count, 9);

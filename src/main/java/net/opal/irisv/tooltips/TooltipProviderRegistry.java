@@ -37,6 +37,7 @@ public class TooltipProviderRegistry {
         register(new StructureBlockTooltipProvider());
         register(new PlayerHeadTooltipProvider());
         register(new JigsawTooltipProvider());
+        register(new ComposterTooltipProvider());
 
         // --- Enregistrement des modules Moddés (Tes propres ajouts) ---
         register(new MeltingSupportTooltipProvider());

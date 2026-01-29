@@ -8,6 +8,7 @@ import net.minecraft.world.Container;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.capabilities.Capabilities;
@@ -23,8 +24,13 @@ import java.util.Map;
 
 public class InventoryTooltipProvider implements IBlockTooltipProvider {
 
-    @Override
     public boolean isApplicable(BlockState state, BlockEntity be) {
+        // EXCEPTION : Si c'est un four, on laisse le FurnaceTooltipProvider gérer
+        if (be instanceof AbstractFurnaceBlockEntity) {
+            return false;
+        }
+
+        // Logique standard pour le reste des inventaires
         return be instanceof Container ||
                 (be != null && be.getLevel() != null &&
                         be.getLevel().getCapability(Capabilities.ItemHandler.BLOCK, be.getBlockPos(), state, be, null) != null);

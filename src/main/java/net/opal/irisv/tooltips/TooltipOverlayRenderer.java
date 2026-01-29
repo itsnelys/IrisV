@@ -116,4 +116,6 @@ public class TooltipOverlayRenderer {
         gui.fill(x - 1, y, x, y + height, color);
         gui.fill(x + width, y, x + width + 1, y + height, color);
     }
+
+
 }

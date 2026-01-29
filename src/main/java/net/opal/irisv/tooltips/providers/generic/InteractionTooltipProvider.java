@@ -12,8 +12,7 @@ public class InteractionTooltipProvider implements IBlockTooltipProvider {
 
     @Override
     public boolean isApplicable(BlockState state, BlockEntity be) {
-        return state.hasProperty(BlockStateProperties.LEVEL_COMPOSTER) ||
-                state.hasProperty(BlockStateProperties.LEVEL_CAULDRON) ||
+        return state.hasProperty(BlockStateProperties.LEVEL_CAULDRON) ||
                 state.hasProperty(BlockStateProperties.RESPAWN_ANCHOR_CHARGES) ||
                 state.hasProperty(BlockStateProperties.BITES) ||
                 state.hasProperty(BlockStateProperties.CANDLES) ||
@@ -24,12 +23,6 @@ public class InteractionTooltipProvider implements IBlockTooltipProvider {
     public void addTooltip(List<String> info, IBlockAccessor accessor) {
         // On récupère le state directement depuis l'accessor
         BlockState state = accessor.state();
-
-        // 1. Composteur
-        if (state.hasProperty(BlockStateProperties.LEVEL_COMPOSTER)) {
-            int levelComp = state.getValue(BlockStateProperties.LEVEL_COMPOSTER);
-            info.add("Composter: §2" + levelComp + "/8");
-        }
 
         // 2. Chaudron (Eau, Poudre de neige, lave)
         if (state.hasProperty(BlockStateProperties.LEVEL_CAULDRON)) {
