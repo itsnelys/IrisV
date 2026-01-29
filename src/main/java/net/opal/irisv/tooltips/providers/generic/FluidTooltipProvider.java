@@ -19,27 +19,29 @@ public class FluidTooltipProvider implements IBlockTooltipProvider {
 
     @Override
     public void addTooltip(List<String> info, IBlockAccessor accessor) {
-        // Récupération des données simplifiée via l'accessor
-        BlockState state = accessor.state();
-        FluidState fluid = state.getFluidState();
+        FluidState fluid = accessor.state().getFluidState();
+        if (fluid.isEmpty()) return;
 
-        // On remplace ClientDataCache par le serverData de l'accessor
-        CompoundTag data = accessor.serverData();
-
+        // 1. Gestion intelligente Source vs Flow
         if (fluid.isSource()) {
-            info.add("§bType: §fSource");
+            info.add("§bType: §3Source Block");
         } else {
-            // Niveau de 1 à 8 (où 8 est la source, 1 le plus bas)
-            int levelValue = fluid.getAmount();
-            info.add("§bFlow: §fLevel " + levelValue + "/8");
+            int level = fluid.getAmount();
+            // On affiche le pourcentage de remplissage du bloc pour plus de clarté
+            int percentage = (level * 100) / 8;
+            info.add("§bFlowing: §f" + percentage + "%");
         }
 
-        // Détection de la température (Lave, Fluides moddés)
-        if (fluid.getFluidType().getTemperature() >= 1000) {
+        // 2. Propriétés physiques (Température / Densité)
+        int temp = fluid.getFluidType().getTemperature();
+        if (temp >= 1000) {
             info.add("§cState: §lExtremely Hot");
+        } else if (temp <= 280) { // Environ 7°C
+            info.add("§bState: §lFreezing");
         }
 
-        // Exemple : Si un fluide moddé a des données NBT spéciales (pureté, etc.)
+        // 3. Données NBT (Server Data)
+        CompoundTag data = accessor.serverData();
         if (data != null && data.contains("FluidExtraInfo")) {
             info.add("§dInfo: §f" + data.getString("FluidExtraInfo"));
         }
