@@ -26,8 +26,8 @@ public class TooltipOverlayRenderer {
         renderBorder(gui, x, y, layout.width(), layout.height());
 
         // 3. HEADER (Icône + Titre)
-        String finalTitle = (accessor.getTitleOverride() != null) ? accessor.getTitleOverride() : info.name();
-        ItemStack finalIcon = accessor.getIcon().isEmpty() ? info.icon() : accessor.getIcon();
+        String finalTitle = (accessor != null && accessor.getTitleOverride() != null) ? accessor.getTitleOverride() : info.name();
+        ItemStack finalIcon = (accessor != null && !accessor.getIcon().isEmpty()) ? accessor.getIcon() : info.icon();
 
         gui.renderFakeItem(finalIcon, x + 5, y + 5);
         gui.drawString(font, finalTitle, x + 26, y + 5, 0xFFFFFF, true);
@@ -38,12 +38,16 @@ public class TooltipOverlayRenderer {
         // 5. RENDU DE LA PREVIEW (Appel à ta classe Block)
         TooltipOverlayRendererBlock.renderInventoryPreview(gui, font, accessor.getPreviewItems(), hasCtrl, x, currentY);
 
-        // 6. PIED DE PAGE (Mod, Outils, Barre)
+        // Dans la section 6. PIED DE PAGE
         TooltipOverlayRendererUtils.renderModName(gui, font, info, x, y, layout.height());
-        TooltipOverlayRendererTools.renderRequiredTools(gui, font, info, accessor.state(), x, y, layout.nameWidth());
 
-        int barY = y + layout.height() - 1;
-        TooltipOverlayRendererUtils.renderProgressBar(gui, accessor.state(), x, barY, layout.width(), visualProgress, timeSinceFinish);
+        // AJOUT DE LA CONDITION ICI
+        if (accessor != null && accessor.state() != null) {
+            TooltipOverlayRendererTools.renderRequiredTools(gui, font, info, accessor.state(), x, y, layout.nameWidth());
+
+            int barY = y + layout.height() - 1;
+            TooltipOverlayRendererUtils.renderProgressBar(gui, accessor.state(), x, barY, layout.width(), visualProgress, timeSinceFinish);
+        }
     }
 
     private record BlockTooltipLayout(int width, int height, int nameWidth, int previewHeight) {
@@ -55,7 +59,9 @@ public class TooltipOverlayRenderer {
             String finalTitle = (accessor.getTitleOverride() != null) ? accessor.getTitleOverride() : info.name();
             int nameWidth = font.width(finalTitle);
             int modWidth = font.width(info.modName());
-            int toolsSpace = info.requiredTools().isEmpty() ? 0 : (info.requiredTools().size() * 14) + 4;
+            int toolsSpace = (accessor.state() != null && !info.requiredTools().isEmpty())
+                    ? (info.requiredTools().size() * 14) + 4
+                    : 0;
 
             int baseContentWidth = Math.max(nameWidth + toolsSpace, modWidth);
             for (String s : info.stateInfo()) {
@@ -94,7 +100,8 @@ public class TooltipOverlayRenderer {
 
             // --- 3. DIMENSIONS FINALES ---
             int width = Math.max(26 + baseContentWidth + 6, 26 + previewMaxWidth + 6);
-            int height = 28 + (info.stateInfo().size() * 10) + previewHeight;
+            int stateLinesCount = (info.stateInfo() != null) ? info.stateInfo().size() : 0;
+            int height = 28 + (stateLinesCount * 10) + previewHeight;
 
             return new BlockTooltipLayout(width, height, nameWidth, previewHeight);
         }
@@ -102,6 +109,8 @@ public class TooltipOverlayRenderer {
 
     private static int renderStateInfo(GuiGraphics gui, Font font, TooltipData.BlockInfo info, int x, int y) {
         int currentY = y + 16;
+        if (info.stateInfo() == null || info.stateInfo().isEmpty()) return currentY; // Ajout sécurité
+
         for (String line : info.stateInfo()) {
             gui.drawString(font, "§7" + line, x + 26, currentY, 0xFFFFFF, true);
             currentY += 10;
