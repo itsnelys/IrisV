@@ -43,6 +43,7 @@ public class Irisv {
         NeoForge.EVENT_BUS.register(MenuPause.class);
         NeoForge.EVENT_BUS.register(MainMenu.class);
         NeoForge.EVENT_BUS.register(MainMenuTitleOverlay.class);
+
     }
 }
 

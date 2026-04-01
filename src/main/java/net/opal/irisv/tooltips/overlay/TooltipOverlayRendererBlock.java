@@ -4,6 +4,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.NotNull;
+import net.opal.irisv.theme.UiTheme;
 
 import java.util.List;
 
@@ -11,6 +12,8 @@ public class TooltipOverlayRendererBlock {
 
     public static void renderInventoryPreview(GuiGraphics gui, Font font, @NotNull List<ItemStack> items, boolean hasCtrl, int x, int y) {
         if (items.isEmpty()) return;
+
+        UiTheme theme = UiTheme.getCurrent();
 
         int count = items.size();
         var pose = gui.pose();
@@ -35,7 +38,7 @@ public class TooltipOverlayRendererBlock {
 
                 // B. Zone Quantité (Alignement dynamique à DROITE)
                 String countText = TooltipOverlayRendererUtils.formatCount(stack.getCount()) + "x";
-                String countColor = stack.getCount() > stack.getMaxStackSize() ? "§6" : "§7";
+                String countColor = stack.getCount() > stack.getMaxStackSize() ? theme.block_countOverstackFormat() : theme.block_countNormalFormat();
                 int currentQteWidth = (int) (font.width(countText) * 0.7f);
 
                 pose.pushPose();
@@ -43,14 +46,14 @@ public class TooltipOverlayRendererBlock {
                 // Ajustement Y : +1.5f pour aligner le texte avec l'icône réduite
                 pose.translate(qteX, renderY + 1.5f, 200);
                 pose.scale(0.7f, 0.7f, 1.0f);
-                gui.drawString(font, countColor + countText, 0, 0, 0xAAAAAA, true);
+                gui.drawString(font, countColor + countText, 0, 0, theme.block_listTextColor(), true);
                 pose.popPose();
 
                 // C. Nom de l'objet
                 pose.pushPose();
                 pose.translate(x + 38 + maxQteWidth + 4, renderY + 1.5f, 200);
                 pose.scale(0.7f, 0.7f, 1.0f);
-                gui.drawString(font, stack.getHoverName(), 0, 0, 0xAAAAAA, true);
+                gui.drawString(font, stack.getHoverName(), 0, 0, theme.block_listTextColor(), true);
                 pose.popPose();
 
                 renderY += 10; // RÉDUCTION : Passage de 12px à 10px
@@ -82,7 +85,7 @@ public class TooltipOverlayRendererBlock {
                 pose.pushPose();
                 pose.translate(x + 26, textY + 2, 0);
                 pose.scale(0.8f, 0.8f, 1.0f);
-                gui.drawString(font, "§8[+ " + (count - 9) + " items... CTRL]", 0, 0, 0xFFFFFF, true);
+                gui.drawString(font, theme.block_extraInfoFormat() + "[+ " + (count - 9) + " items... CTRL]", 0, 0, theme.block_extraInfoColor(), true);
                 pose.popPose();
             }
             // CAS 2 : Avec CTRL -> On affiche le surplus par rapport à 54
@@ -91,16 +94,18 @@ public class TooltipOverlayRendererBlock {
                 pose.translate(x + 26, textY + 2, 0);
                 pose.scale(0.8f, 0.8f, 1.0f);
                 // Ici count est le nombre total d'items dans la ListTag
-                gui.drawString(font, "§6[+ " + (count - 54) + " encore]", 0, 0, 0xFFFFFF, true);
+                gui.drawString(font, theme.block_countOverstackFormat() + "[+ " + (count - 54) + " encore]", 0, 0, theme.block_extraInfoColor(), true);
                 pose.popPose();
             }
         }
     }
     public static void renderCustomItemDecorations(GuiGraphics gui, Font font, ItemStack stack, int x, int y) {
+        UiTheme theme = UiTheme.getCurrent();
+
         if (stack.getCount() <= 1 && !stack.isBarVisible()) return;
 
         String text = TooltipOverlayRendererUtils.formatCount(stack.getCount());
-        int color = stack.getCount() > stack.getMaxStackSize() ? 0xFFAA00 : 0xFFFFFF;
+        int color = stack.getCount() > stack.getMaxStackSize() ? theme.block_countOverstackHex() : theme.block_countNormalHex();
 
         // --- CALCUL DU SCALE DYNAMIQUE ---
         // Valeur de base à 0.7f. Si le texte dépasse 3 caractères (ex: 10.5k), on réduit.

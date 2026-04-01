@@ -124,7 +124,7 @@ public class TooltipManager {
             return;
         }
 
-        // --- RENDU ---
+// --- RENDU ---
         long timeSinceFinish = System.currentTimeMillis() - finishTime;
         TooltipOverlayRenderer.render(
                 event.getGuiGraphics(),
@@ -133,7 +133,8 @@ public class TooltipManager {
                 accessor,
                 visualProgress,
                 timeSinceFinish,
-                mc.getWindow().getGuiScaledWidth()
+                mc.getWindow().getGuiScaledWidth(),  // Argument 7 (Largeur)
+                mc.getWindow().getGuiScaledHeight() // Argument 8 (Hauteur) <- LE VOICI
         );
     }
 
@@ -219,9 +220,10 @@ public class TooltipManager {
                 mc.font,
                 info,
                 accessor,
-                progress,
+                visualProgress,
                 timeSinceFinish,
-                mc.getWindow().getGuiScaledWidth()
+                mc.getWindow().getGuiScaledWidth(),  // Argument 7 (Largeur)
+                mc.getWindow().getGuiScaledHeight() // Argument 8 (Hauteur) <- LE VOICI
         );
     }
 

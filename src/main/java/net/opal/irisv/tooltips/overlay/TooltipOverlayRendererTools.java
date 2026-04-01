@@ -6,13 +6,13 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.world.item.*;
 import net.minecraft.world.level.block.state.BlockState;
+import net.opal.irisv.theme.UiTheme;
 import net.opal.irisv.tooltips.TooltipData;
 
 import java.util.List;
 
 public class TooltipOverlayRendererTools {
-    private static void renderTool(GuiGraphics gui, Font font, ItemStack toolIcon, BlockState state, ItemStack held, boolean alreadyHoldingCorrect, int tx, int ty) {
-        String status = "";
+    private static void renderTool(GuiGraphics gui, Font font, ItemStack toolIcon, BlockState state, ItemStack held, UiTheme theme, boolean alreadyHoldingCorrect, int tx, int ty) {        String status = "";
         boolean isCreative = Minecraft.getInstance().player.isCreative();
 
         // La correction est ici : on vérifie si l'icône est un outil de minage (DiggerItem)
@@ -21,24 +21,24 @@ public class TooltipOverlayRendererTools {
 
         if (isCreative) {
             // En créatif, on affiche le ✔ seulement si c'est un outil de minage
-            if (isMiningTool) status = "§a✔";
+            if (isMiningTool) status = theme.status_ok();
         } else if (isMiningTool) {
             // Logique de minage standard (Survie)
             boolean isCorrectType = isSameToolType(toolIcon.getItem(), held.getItem());
             boolean isShearsRequired = toolIcon.getItem() instanceof ShearsItem;
 
             if (isShearsRequired) {
-                status = (held.getItem() instanceof ShearsItem) ? "§a✔" : "§c✘";
+                status = (held.getItem() instanceof ShearsItem) ? theme.status_ok() : theme.status_error();
             } else {
                 boolean canDropWithHeld = Minecraft.getInstance().player.hasCorrectToolForDrops(state);
                 boolean holdingAnyTool = isTieredTool(held.getItem());
 
                 if (isCorrectType) {
-                    status = canDropWithHeld ? "§a✔" : "§c✘";
+                    status = canDropWithHeld ? theme.status_ok() : theme.status_error();
                 } else if (canDropWithHeld && !holdingAnyTool) {
-                    status = "§e!";
+                    status = theme.status_warning();
                 } else {
-                    status = "§c✘";
+                    status = theme.status_error();
                 }
             }
         }
@@ -52,7 +52,7 @@ public class TooltipOverlayRendererTools {
 
         if (!status.isEmpty() && toolIcon.getItem() != Items.BARRIER) {
             gui.pose().pushPose();
-            if (status.equals("§e!")) {
+            if (status.equals(theme.status_warning())) {
                 float scale = 0.8f;
                 gui.pose().translate(tx + 6 - (font.width(status) * scale / 2), ty + 3, 200);
                 gui.pose().scale(scale, scale, scale);
@@ -97,12 +97,14 @@ public class TooltipOverlayRendererTools {
 
     public static void renderRequiredTools(GuiGraphics gui, Font font, TooltipData.BlockInfo info, BlockState state, int x, int y, int nameWidth) {
         if (!info.requiredTools().isEmpty()) {
+            UiTheme theme = UiTheme.getCurrent();
+
             ItemStack held = Minecraft.getInstance().player.getMainHandItem();
             boolean isCorrectToolHeld = isAnyCorrectToolHeld(info.requiredTools(), held);
 
             int toolX = x + 25 + nameWidth + 4;
             for (ItemStack tool : info.requiredTools()) {
-                renderTool(gui, font, tool, state, held, isCorrectToolHeld, toolX, y + 4);
+                renderTool(gui, font, tool, state, held, theme, isCorrectToolHeld, toolX, y + 4);
                 toolX += 14;
             }
         }

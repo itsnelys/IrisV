@@ -18,6 +18,12 @@ public class ConfigOptions {
     public boolean enableDebugChat = false;
     public boolean enableBlockTooltipOverlay = false;
 
+    public int themeIndex = 0;
+
+    // Dans ConfigOptions.java
+    public int tooltipPosition = 0; // 0 = Centre, 1 = Gauche, 2 = Droite
+    public boolean compactMode = false; // true = pas d'espaces
+
     private static final Path CONFIG_PATH = FMLPaths.CONFIGDIR.get()
             .resolve("irisv")
             .resolve("options.json");

@@ -9,6 +9,7 @@ import net.minecraft.world.item.ShearsItem;
 import net.minecraft.world.level.block.state.BlockState;
 import net.opal.irisv.tooltips.TooltipData;
 import net.opal.irisv.tooltips.helpers.TooltipColorManager;
+import net.opal.irisv.theme.UiTheme;
 
 public class TooltipOverlayRendererUtils {
     public static String formatCount(int count) {
@@ -24,13 +25,15 @@ public class TooltipOverlayRendererUtils {
 
 
     public static void renderModName(GuiGraphics gui, Font font, TooltipData.BlockInfo info, int x, int y, int height) {
-        int modColor = TooltipColorManager.getModColor(info.modId());
+
+        UiTheme theme = UiTheme.getCurrent();int modColor = TooltipColorManager.getModColor(info.modId());
         var modComponent = Component.literal(info.modName()).withStyle(s -> s.withColor(modColor).withItalic(true));
         // Se place exactement à 11 pixels du bas de la boîte
-        gui.drawString(font, modComponent, x + 26, y + height - 11, 0xFFFFFF, true);
+        gui.drawString(font, modComponent, x + 26, y + height - 11, theme.mod_name_color(), true);
     }
 
     public static void renderProgressBar(GuiGraphics gui, BlockState state, int x, int barY, int width, float visualProgress, long timeSinceFinish) {
+        UiTheme theme = UiTheme.getCurrent();
         boolean isAnimatingFinish = timeSinceFinish < 400;
         if (visualProgress > 0 || isAnimatingFinish) {
             int barColor;
@@ -38,23 +41,23 @@ public class TooltipOverlayRendererUtils {
             if (isAnimatingFinish) {
                 float alpha = 1.0f - (timeSinceFinish / 400f);
                 int alphaInt = (int)(alpha * 255);
-                barColor = (alphaInt << 24) | 0xFFFFFF;
+                barColor = (alphaInt << 24) | (theme.progress_bar_finish_white() & 0x00FFFFFF);
             } else {
                 var player = Minecraft.getInstance().player;
                 if (player != null && !player.isCreative()) {
                     boolean canDrop = player.hasCorrectToolForDrops(state);
                     boolean isTool = player.getMainHandItem().getItem() instanceof DiggerItem || player.getMainHandItem().getItem() instanceof ShearsItem;
 
-                    if (!canDrop) barColor = 0xFFFF4545; // Rouge
-                    else if (!isTool) barColor = 0xFFFFD700; // Jaune
-                    else barColor = 0xFF50C878; // Vert
+                    if (!canDrop) barColor = theme.progress_bar_error();
+                    else if (!isTool) barColor = theme.progress_bar_warn();
+                    else barColor = theme.progress_bar_ready();
                 } else {
-                    barColor = 0xFF708090; // Gris
+                    barColor = theme.progress_bar_creative();
                 }
             }
 
             // Fond sombre de la barre
-            gui.fill(x, barY, x + width, barY + 1, 0xFF1A1A1A);
+            gui.fill(x, barY, x + width, barY + 1, theme.progress_bar_empty());
 
             var pose = gui.pose();
             pose.pushPose();
