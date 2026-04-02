@@ -25,10 +25,7 @@ import java.util.Map;
 public class InventoryTooltipProvider implements IBlockTooltipProvider {
 
     public boolean isApplicable(BlockState state, BlockEntity be) {
-        // EXCEPTION : Si c'est un four, on laisse le FurnaceTooltipProvider gérer
-        if (be instanceof AbstractFurnaceBlockEntity) {
-            return false;
-        }
+
 
         // Logique standard pour le reste des inventaires
         return be instanceof Container ||

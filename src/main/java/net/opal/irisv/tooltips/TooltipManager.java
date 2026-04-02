@@ -2,11 +2,12 @@ package net.opal.irisv.tooltips;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
@@ -15,6 +16,7 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.client.event.RenderGuiEvent;
 import net.opal.irisv.api.IBlockAccessor;
 import net.opal.irisv.api.IBlockTooltipProvider;
+import net.opal.irisv.api.IEntityTooltipProvider;
 import net.opal.irisv.commun.utils.StorageUtils;
 import net.opal.irisv.mixin.DestroyAccessor;
 import net.opal.irisv.network.ClientDataCache;
@@ -37,35 +39,43 @@ public class TooltipManager {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null || mc.screen != null || mc.gameMode == null) return;
 
-// 1. DÉFINITION DES VECTEURS
+        // 1. DÉFINITION DES VECTEURS
         double reach = 5.0;
         Vec3 eyePos = mc.player.getEyePosition(1.0f);
         Vec3 viewVec = mc.player.getViewVector(1.0f);
         Vec3 endPos = eyePos.add(viewVec.scale(reach));
 
-// 2. RAYCAST DES ENTITÉS (Priorité maximale)
-// On cherche d'abord s'il y a un item n'importe où dans le champ de vision
+        // 2. RAYCAST DES ENTITÉS (Priorité maximale)
         AABB searchBox = mc.player.getBoundingBox().expandTowards(viewVec.scale(reach)).inflate(1.0D);
         EntityHitResult entityHit = ProjectileUtil.getEntityHitResult(
                 mc.player, eyePos, endPos, searchBox,
-                entity -> entity instanceof ItemEntity, reach * reach // On check sur toute la portée
+                entity -> !entity.isSpectator() && entity.isPickable(), reach * reach
         );
 
-// SI ON TROUVE UN ITEM -> ON L'AFFICHE DIRECTEMENT
-        if (entityHit != null && entityHit.getEntity() instanceof ItemEntity itemEntity) {
-            handleItemEntity(event, mc, itemEntity);
-            updateProgress(null, 0, null);
-            return; // On arrête là, l'item gagne sur le bloc
+        if (entityHit != null && entityHit.getEntity() != null) {
+            Entity target = entityHit.getEntity();
+
+            // CAS A : C'est un item au sol (Logique groupée existante)
+            if (target instanceof ItemEntity itemEntity) {
+                handleItemEntity(event, mc, itemEntity);
+                updateProgress(null, 0, null);
+                return;
+            }
+
+            // CAS B : C'est une entité spéciale (ArmorStand, Frame, EndCrystal, etc.)
+            if (handleSpecialEntity(event, mc, target)) {
+                updateProgress(null, 0, null);
+                return;
+            }
         }
 
-// 3. RAYCAST DES BLOCS (Seulement si aucun item n'a été trouvé)
+        // 3. RAYCAST DES BLOCS (Si aucune entité trouvée)
         HitResult hitResult = mc.level.clip(new ClipContext(
                 eyePos, endPos, ClipContext.Block.OUTLINE,
                 mc.player.isUnderWater() || mc.player.isInLava() ? ClipContext.Fluid.NONE : ClipContext.Fluid.ANY,
                 mc.player
         ));
 
-        // --- 3. LOGIQUE POUR LES BLOCS (Ton code original) ---
         if (hitResult.getType() != HitResult.Type.BLOCK) {
             updateProgress(null, 0, null);
             return;
@@ -75,40 +85,30 @@ public class TooltipManager {
         BlockPos pos = blockHit.getBlockPos();
         BlockState originalState = mc.level.getBlockState(pos);
 
-        // À partir d'ici, tu gardes ton code original : var gameMode = (DestroyAccessor)...
-
-        // --- SÉCURITÉ "CLEAN DESTRUCTION" ---
+        // --- SÉCURITÉ DESTRUCTION ---
         var gameMode = (DestroyAccessor) mc.gameMode;
         float progress = gameMode.getDestroyProgress();
 
         if (originalState.isAir() || progress >= 1.0f) {
             ClientDataCache.remove(pos);
             updateProgress(null, 0, null);
-            return; // Coupe le rendu instantanément
+            return;
         }
 
-        // --- LOGIQUE DE REDIRECTION (MASTER/SLAVE) ---
-        // On utilise StorageUtils pour pointer immédiatement vers le bloc maître (Vanilla ou Moddé)
         BlockPos targetPos = StorageUtils.getActualTarget(mc.level, pos, originalState);
         CompoundTag data = ClientDataCache.get(targetPos);
-
         BlockState finalState = (targetPos.equals(pos)) ? originalState : mc.level.getBlockState(targetPos);
         BlockEntity finalBE = (targetPos.equals(pos)) ? mc.level.getBlockEntity(pos) : mc.level.getBlockEntity(targetPos);
 
-        // Mise à jour de la barre de progression
         updateProgress(pos, progress, originalState);
 
-        // --- INITIALISATION ACCESSOR ---
-        ItemStack[] iconContainer = new ItemStack[]{ItemStack.EMPTY};
-        List<ItemStack>[] inventoryContainer = (List<ItemStack>[]) new List[]{new ArrayList<>()};
-        String[] titleContainer = new String[]{null};
-
+        // --- INITIALISATION ACCESSOR BLOC ---
         IBlockAccessor accessor = new IBlockAccessor(
                 mc.level, mc.player, targetPos, finalState, finalBE,
-                data, hitResult, iconContainer, inventoryContainer, titleContainer
+                data, hitResult, new ItemStack[]{ItemStack.EMPTY},
+                (List<ItemStack>[]) new List[]{new ArrayList<>()}, new String[]{null}
         );
 
-        // --- APPEL DES PROVIDERS ---
         List<String> extraInfo = new ArrayList<>();
         for (IBlockTooltipProvider provider : TooltipProviderRegistry.getProviders()) {
             if (provider.isApplicable(finalState, finalBE)) {
@@ -116,62 +116,97 @@ public class TooltipManager {
             }
         }
 
-        // --- COLLECTE ET FILTRAGE FINAL ---
         var info = TooltipData.collect(mc, pos, finalState, mc.level.getFluidState(pos), extraInfo, accessor);
 
-        // Si l'icône est interdite (Air/Barrière) et qu'il n'y a rien d'autre, on ne dessine rien.
-        if (info.icon().isEmpty() && accessor.getPreviewItems().isEmpty() && extraInfo.isEmpty()) {
-            return;
-        }
+        if (info.icon().isEmpty() && accessor.getPreviewItems().isEmpty() && extraInfo.isEmpty()) return;
 
-// --- RENDU ---
-        long timeSinceFinish = System.currentTimeMillis() - finishTime;
-        TooltipOverlayRenderer.render(
-                event.getGuiGraphics(),
-                mc.font,
-                info,
-                accessor,
-                visualProgress,
-                timeSinceFinish,
-                mc.getWindow().getGuiScaledWidth(),  // Argument 7 (Largeur)
-                mc.getWindow().getGuiScaledHeight() // Argument 8 (Hauteur) <- LE VOICI
-        );
+        renderFinal(event, mc, info, accessor, visualProgress);
     }
 
-    private static void handleItemEntity(RenderGuiEvent.Post event, Minecraft mc, net.minecraft.world.entity.item.ItemEntity targetEntity) {
+    /**
+     * Gère le rendu pour les entités spécifiques via les Entity Providers
+     */
+    private static boolean handleSpecialEntity(RenderGuiEvent.Post event, Minecraft mc, Entity entity) {
+        List<String> extraInfo = new ArrayList<>();
+        List<ItemStack> previewItems = new ArrayList<>();
+
+        // Initialisation de l'accessor avec les conteneurs requis par ton record
+        IBlockAccessor accessor = new IBlockAccessor(
+                mc.level, mc.player, entity.blockPosition(), null, null,
+                null, null,
+                new ItemStack[]{ItemStack.EMPTY},            // iconContainer
+                (List<ItemStack>[]) new List[]{previewItems}, // inventoryContainer
+                new String[]{null}                           // titleContainer
+        );
+
+        // Parcours des providers d'entités
+        boolean foundProvider = false;
+        for (IEntityTooltipProvider provider : TooltipEntityProviderRegistry.getProviders()) {
+            if (provider.isApplicable(entity)) {
+                provider.addTooltip(extraInfo, entity, accessor);
+                foundProvider = true;
+            }
+        }
+
+        // Si aucun provider n'a rien ajouté, on ne dessine rien (évite les tooltips vides sur les mobs)
+        if (!foundProvider && extraInfo.isEmpty() && previewItems.isEmpty()) return false;
+
+        String modId = BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()).getNamespace();
+
+        // Récupération de l'icône :
+        // 1. On regarde si un provider a fait accessor.setIcon(...)
+        // 2. Sinon on utilise le résultat du "Pick Block" de l'entité
+        ItemStack icon = accessor.getIcon();
+        if (icon.isEmpty()) {
+            icon = entity.getPickResult();
+        }
+
+        // Gestion du titre (soit un override du provider, soit le nom de l'entité)
+        String title = accessor.getTitleOverride();
+        if (title == null) {
+            title = entity.getDisplayName().getString();
+        }
+
+        TooltipData.BlockInfo info = new TooltipData.BlockInfo(
+                title,
+                capitalize(modId),
+                modId,
+                icon,
+                List.of(),
+                extraInfo
+        );
+
+        renderFinal(event, mc, info, accessor, 0f);
+        return true;
+    }
+
+    private static void handleItemEntity(RenderGuiEvent.Post event, Minecraft mc, ItemEntity targetEntity) {
         if (mc.level == null || mc.player == null) return;
 
-        // 1. Scan de la zone (3 blocs)
-        List<net.minecraft.world.entity.item.ItemEntity> nearby = mc.level.getEntitiesOfClass(
-                net.minecraft.world.entity.item.ItemEntity.class,
+        List<ItemEntity> nearby = mc.level.getEntitiesOfClass(
+                ItemEntity.class,
                 targetEntity.getBoundingBox().inflate(1.0D)
         );
 
-        // 2. Fusion des stacks et Tooltip conditionnel
         java.util.Map<Integer, ItemStack> mergedMap = new java.util.LinkedHashMap<>();
         List<String> tooltipLines = new ArrayList<>();
         net.minecraft.world.item.Item.TooltipContext tooltipContext = net.minecraft.world.item.Item.TooltipContext.of(mc.level);
-
-        // VERIFICATION DE LA TOUCHE CTRL
         boolean isCtrlPressed = net.minecraft.client.gui.screens.Screen.hasControlDown();
 
-        for (net.minecraft.world.entity.item.ItemEntity ie : nearby) {
+        for (ItemEntity ie : nearby) {
             ItemStack stack = ie.getItem();
             if (stack.isEmpty()) continue;
 
-            // On récupère les lignes UNIQUEMENT si CTRL n'est PAS pressé
             if (ie == targetEntity && !isCtrlPressed) {
                 List<net.minecraft.network.chat.Component> lines = stack.getTooltipLines(
                         tooltipContext, mc.player,
                         mc.options.advancedItemTooltips ? net.minecraft.world.item.TooltipFlag.Default.ADVANCED : net.minecraft.world.item.TooltipFlag.Default.NORMAL
                 );
-                // On ignore l'index 0 (nom de l'item)
                 for (int i = 1; i < lines.size(); i++) {
                     tooltipLines.add(lines.get(i).getString());
                 }
             }
 
-            // Fusion des stacks (Hash Item + NBT)
             int hash = stack.getItem().hashCode();
             if (stack.getComponentsPatch() != null) {
                 hash = 31 * hash + stack.getComponentsPatch().hashCode();
@@ -185,16 +220,14 @@ public class TooltipManager {
         }
 
         List<ItemStack> previewList = new ArrayList<>(mergedMap.values());
-
-        // 3. Préparation des données
         ItemStack targetStack = targetEntity.getItem();
-        String modId = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(targetStack.getItem()).getNamespace();
+        String modId = BuiltInRegistries.ITEM.getKey(targetStack.getItem()).getNamespace();
 
         TooltipData.BlockInfo info = new TooltipData.BlockInfo(
                 targetStack.getHoverName().getString(),
                 capitalize(modId),
                 modId,
-                new ItemStack(net.minecraft.world.item.Items.AIR), // Fix icône doublon
+                ItemStack.EMPTY, // Évite le doublon d'icône avec le titre
                 List.of(),
                 tooltipLines
         );
@@ -220,10 +253,10 @@ public class TooltipManager {
                 mc.font,
                 info,
                 accessor,
-                visualProgress,
+                progress,
                 timeSinceFinish,
-                mc.getWindow().getGuiScaledWidth(),  // Argument 7 (Largeur)
-                mc.getWindow().getGuiScaledHeight() // Argument 8 (Hauteur) <- LE VOICI
+                mc.getWindow().getGuiScaledWidth(),
+                mc.getWindow().getGuiScaledHeight()
         );
     }
 

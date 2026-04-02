@@ -3,7 +3,9 @@ package net.opal.irisv.tooltips.overlay;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.DiggerItem;
 import net.minecraft.world.item.ShearsItem;
 import net.minecraft.world.level.block.state.BlockState;
@@ -30,6 +32,41 @@ public class TooltipOverlayRendererUtils {
         var modComponent = Component.literal(info.modName()).withStyle(s -> s.withColor(modColor).withItalic(true));
         // Se place exactement à 11 pixels du bas de la boîte
         gui.drawString(font, modComponent, x + 26, y + height - 11, theme.mod_name_color(), true);
+    }
+
+    // Dans TooltipOverlayRendererUtils.java
+// Dans TooltipOverlayRendererUtils.java
+    private static final ResourceLocation HEART_FULL = ResourceLocation.withDefaultNamespace("hud/heart/full");
+    private static final ResourceLocation HEART_HALF = ResourceLocation.withDefaultNamespace("hud/heart/half");
+    private static final ResourceLocation HEART_CONTAINER = ResourceLocation.withDefaultNamespace("hud/heart/container");
+
+    // Dans TooltipOverlayRendererUtils.java
+    public static void renderHearts(GuiGraphics gui, int x, int y, float health, float maxHealth) {
+        // 1. On limite l'affichage à 20 cœurs (40 HP)
+        int heartsToDraw = (int) Math.min(Math.ceil(maxHealth / 2f), 20);
+
+        for (int i = 0; i < heartsToDraw; i++) {
+            // Disposition : 10 cœurs par ligne
+            int heartX = x + (i % 10) * 9;
+            int heartY = y + (i / 10) * 9;
+
+            // 2. On dessine le fond (le container vide)
+            gui.blitSprite(RenderType::guiTextured, HEART_CONTAINER, heartX, heartY, 9, 9);
+
+            // --- CORRECTION DU BUG 10.75 ---
+            // On compare la vie au "début" du slot actuel (i * 2)
+            // Exemple : pour le 6ème cœur (i=5), le seuil est 10.0
+            float threshold = i * 2f;
+
+            if (health >= threshold + 2f) {
+                // Cœur complet (ex: 12.0 HP pour le slot qui finit à 12.0)
+                gui.blitSprite(RenderType::guiTextured, HEART_FULL, heartX, heartY, 9, 9);
+            } else if (health > threshold) {
+                // Demi-cœur : s'affiche dès qu'il y a un surplus de vie sur ce slot
+                // Si health = 10.75 et threshold = 10.0, alors 10.75 > 10.0 -> OK
+                gui.blitSprite(RenderType::guiTextured, HEART_HALF, heartX, heartY, 9, 9);
+            }
+        }
     }
 
     public static void renderProgressBar(GuiGraphics gui, BlockState state, int x, int barY, int width, float visualProgress, long timeSinceFinish) {

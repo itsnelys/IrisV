@@ -101,20 +101,43 @@ public class TooltipOverlayRenderer {
 
             int baseContentWidth = Math.max(nameWidth + toolsSpace, modWidth);
 
-            // DÉTECTION : Si l'icône est vide, c'est un ItemEntity (via handleItemEntity)
+            // DÉTECTION : Si l'icône est vide, c'est un ItemEntity
             boolean isItemEntity = info.icon().isEmpty();
 
-            for (String s : info.stateInfo()) {
-                int lineWidth = font.width(s);
-                if (isItemEntity) {
-                    // On applique le coefficient 0.7 à la largeur pour que le fond noir colle au texte
-                    baseContentWidth = Math.max(baseContentWidth, (int)(lineWidth * 0.7f));
-                } else {
-                    baseContentWidth = Math.max(baseContentWidth, lineWidth);
+            // --- 2. CALCUL DYNAMIQUE DU STATE INFO (Texte ou Cœurs) ---
+            int stateHeight = 0;
+            if (info.stateInfo() != null) {
+                for (String s : info.stateInfo()) {
+                    // CAS A : La ligne est un rendu de cœurs
+                    if (s.startsWith("hp_render:")) {
+                        try {
+                            String[] values = s.replace("hp_render:", "").split("/");
+                            float maxHealth = Float.parseFloat(values[1]);
+
+                            // Largeur fixe pour 10 cœurs (9px * 10 = 90px)
+                            baseContentWidth = Math.max(baseContentWidth, 90);
+
+                            // Hauteur : 12px pour une ligne, 20px pour deux lignes (si > 20 HP)
+                            stateHeight += (maxHealth > 20) ? 20 : 12;
+                        } catch (Exception e) {
+                            stateHeight += 10;
+                        }
+                    }
+                    // CAS B : La ligne est du texte classique
+                    else {
+                        int lineWidth = font.width(s);
+                        if (isItemEntity) {
+                            baseContentWidth = Math.max(baseContentWidth, (int)(lineWidth * 0.7f));
+                            stateHeight += 7;
+                        } else {
+                            baseContentWidth = Math.max(baseContentWidth, lineWidth);
+                            stateHeight += 10;
+                        }
+                    }
                 }
             }
 
-            // --- 2. CALCUL DYNAMIQUE DE LA PREVIEW ---
+            // --- 3. CALCUL DYNAMIQUE DE LA PREVIEW D'INVENTAIRE ---
             int previewHeight = 0;
             int previewMaxWidth = 0;
 
@@ -144,12 +167,10 @@ public class TooltipOverlayRenderer {
                 }
             }
 
-            // --- 3. DIMENSIONS FINALES ---
+            // --- 4. DIMENSIONS FINALES ---
+            // 26px (icône + marge) + largeur contenu + 6px marge droite
             int width = Math.max(26 + baseContentWidth + 6, 26 + previewMaxWidth + 6);
-            int stateLinesCount = (info.stateInfo() != null) ? info.stateInfo().size() : 0;
-
-            // Ajustement de la hauteur : 7 pixels par ligne pour les items (police 0.7), 10 pour les blocs
-            int stateHeight = isItemEntity ? (stateLinesCount * 7) : (stateLinesCount * 10);
+            // 28px = marge header (16) + marge modName/marge basse (12)
             int height = 28 + stateHeight + previewHeight;
 
             return new BlockTooltipLayout(width, height, nameWidth, previewHeight);
@@ -163,30 +184,80 @@ public class TooltipOverlayRenderer {
         // Sécurité : si pas d'infos à afficher, on s'arrête
         if (info.stateInfo() == null || info.stateInfo().isEmpty()) return currentY;
 
-        // Détection : si l'icône est vide (AIR), c'est un item au sol (handleItemEntity)
+        // Détection : si l'icône est vide (AIR), c'est un item au sol
         boolean isItemEntity = info.icon().isEmpty();
 
         for (String line : info.stateInfo()) {
+
+            // --- 1. DÉTECTION ET RENDU DES CŒURS (JOUEURS & MOBS) ---
+            if (line.startsWith("hp_render:")) {
+                try {
+                    // On extrait les valeurs (ex: hp_render:15.5/20.0)
+                    String[] values = line.replace("hp_render:", "").split("/");
+                    float health = Float.parseFloat(values[0]);
+                    float maxHealth = Float.parseFloat(values[1]);
+
+                    // Appel de l'utilitaire (x + 26 pour aligner avec le texte)
+                    TooltipOverlayRendererUtils.renderHearts(gui, x + 26, currentY, health, maxHealth);
+
+                    // On calcule le décalage vertical : 9px par ligne de cœurs + petite marge
+                    // Si maxHealth > 20, il y a 2 lignes de cœurs (10 par ligne)
+                    currentY += (maxHealth > 20) ? 20 : 12;
+
+                    continue; // On passe à la ligne suivante, on ne dessine pas le texte "hp_render"
+                } catch (Exception e) {
+                    // En cas d'erreur de parsing, on laisse tomber et on continue
+                }
+            }
+
+            // --- 2. RENDU DU TEXTE CLASSIQUE ---
             if (isItemEntity) {
-                // --- RENDU PETIT & STYLE ITEM (ex: §e§o défini dans le thème) ---
+                // --- STYLE ITEM (Petit & Italique) ---
                 float scale = 0.7f;
                 gui.pose().pushPose();
-
-                // On se place à x + marge, y actuel
                 gui.pose().translate(x + 26, currentY, 0);
                 gui.pose().scale(scale, scale, scale);
 
-                // On applique le format spécial Item du thème (Jaune + Italique par défaut)
-                // Le code de formatage dans la String est prioritaire sur la couleur Hexa
                 gui.drawString(font, theme.block_stateItemFormat() + line, 0, 0, theme.block_stateTextColor(), true);
 
                 gui.pose().popPose();
-
-                // Interligne réduit (7 au lieu de 10) car le texte est à 70%
                 currentY += 7;
             } else {
-                // --- RENDU NORMAL (BLOCS) ---
-                // Utilise le format standard (ex: §7)
+                // --- STYLE NORMAL (Blocs & Mobs) ---
+                gui.drawString(font, theme.block_stateTextFormat() + line, x + 26, currentY, theme.block_stateTextColor(), true);
+                currentY += 10;
+            }
+        }
+        return currentY;
+    }
+
+    // Dans TooltipOverlayRenderer.java
+    private static int renderStateInfo(GuiGraphics gui, Font font, TooltipData.BlockInfo info, UiTheme theme, int x, int y) {
+        int currentY = y;
+        for (String line : info.stateInfo()) {
+
+            // --- NOUVEAU : DÉTECTION DES CŒURS ---
+            if (line.startsWith("hp_render:")) {
+                try {
+                    String[] values = line.replace("hp_render:", "").split("/");
+                    float health = Float.parseFloat(values[0]);
+                    float maxHealth = Float.parseFloat(values[1]);
+
+                    // On dessine les cœurs
+                    TooltipOverlayRendererUtils.renderHearts(gui, x + 26, currentY, health, maxHealth);
+
+                    // On ajuste l'espacement vertical (9px par ligne de cœurs)
+                    currentY += (maxHealth > 20) ? 20 : 12;
+                    continue; // On passe à la ligne suivante, on ne dessine pas le texte "hp_render"
+                } catch (Exception e) {
+                    // En cas d'erreur de parsing, on ignore
+                }
+            }
+
+            // --- RENDU DU TEXTE NORMAL (ce que tu avais déjà) ---
+            if (line.startsWith("item:")) {
+                // ... ton code pour les items
+            } else {
                 gui.drawString(font, theme.block_stateTextFormat() + line, x + 26, currentY, theme.block_stateTextColor(), true);
                 currentY += 10;
             }
