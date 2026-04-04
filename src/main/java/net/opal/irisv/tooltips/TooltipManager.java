@@ -21,16 +21,14 @@ import net.opal.irisv.commun.utils.StorageUtils;
 import net.opal.irisv.mixin.DestroyAccessor;
 import net.opal.irisv.network.ClientDataCache;
 import net.opal.irisv.option.ConfigOptions;
+import net.opal.irisv.tooltips.overlay.TooltipOverlayRendererUtils;
+import net.opal.irisv.tooltips.providers.TooltipEntityProviderRegistry;
+import net.opal.irisv.tooltips.providers.TooltipBlockProviderRegistry;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class TooltipManager {
-
-    private static BlockPos lastTargetPos = null;
-    private static float visualProgress = 0f;
-    private static long lastTimeMillis = System.currentTimeMillis();
-    private static long finishTime = 0;
 
     @SubscribeEvent
     public static void onRenderGui(RenderGuiEvent.Post event) {
@@ -58,13 +56,13 @@ public class TooltipManager {
             // CAS A : C'est un item au sol (Logique groupée existante)
             if (target instanceof ItemEntity itemEntity) {
                 handleItemEntity(event, mc, itemEntity);
-                updateProgress(null, 0, null);
+                TooltipOverlayRendererUtils.updateProgress(null, 0, null);
                 return;
             }
 
             // CAS B : C'est une entité spéciale (ArmorStand, Frame, EndCrystal, etc.)
             if (handleSpecialEntity(event, mc, target)) {
-                updateProgress(null, 0, null);
+                TooltipOverlayRendererUtils.updateProgress(null, 0, null);
                 return;
             }
         }
@@ -77,7 +75,7 @@ public class TooltipManager {
         ));
 
         if (hitResult.getType() != HitResult.Type.BLOCK) {
-            updateProgress(null, 0, null);
+            TooltipOverlayRendererUtils.updateProgress(null, 0, null);
             return;
         }
 
@@ -91,7 +89,7 @@ public class TooltipManager {
 
         if (originalState.isAir() || progress >= 1.0f) {
             ClientDataCache.remove(pos);
-            updateProgress(null, 0, null);
+            TooltipOverlayRendererUtils.updateProgress(null, 0, null);
             return;
         }
 
@@ -100,7 +98,7 @@ public class TooltipManager {
         BlockState finalState = (targetPos.equals(pos)) ? originalState : mc.level.getBlockState(targetPos);
         BlockEntity finalBE = (targetPos.equals(pos)) ? mc.level.getBlockEntity(pos) : mc.level.getBlockEntity(targetPos);
 
-        updateProgress(pos, progress, originalState);
+        TooltipOverlayRendererUtils.updateProgress(pos, progress, originalState);
 
         // --- INITIALISATION ACCESSOR BLOC ---
         IBlockAccessor accessor = new IBlockAccessor(
@@ -110,7 +108,7 @@ public class TooltipManager {
         );
 
         List<String> extraInfo = new ArrayList<>();
-        for (IBlockTooltipProvider provider : TooltipProviderRegistry.getProviders()) {
+        for (IBlockTooltipProvider provider : TooltipBlockProviderRegistry.getProviders()) {
             if (provider.isApplicable(finalState, finalBE)) {
                 provider.addTooltip(extraInfo, accessor);
             }
@@ -120,7 +118,7 @@ public class TooltipManager {
 
         if (info.icon().isEmpty() && accessor.getPreviewItems().isEmpty() && extraInfo.isEmpty()) return;
 
-        renderFinal(event, mc, info, accessor, visualProgress);
+        TooltipOverlayRendererUtils.renderFinal(event, mc, info, accessor, TooltipOverlayRendererUtils.visualProgress);
     }
 
     /**
@@ -169,14 +167,14 @@ public class TooltipManager {
 
         TooltipData.BlockInfo info = new TooltipData.BlockInfo(
                 title,
-                capitalize(modId),
+                TooltipOverlayRendererUtils.capitalize(modId),
                 modId,
                 icon,
                 List.of(),
                 extraInfo
         );
 
-        renderFinal(event, mc, info, accessor, 0f);
+        TooltipOverlayRendererUtils.renderFinal(event, mc, info, accessor, 0f);
         return true;
     }
 
@@ -225,7 +223,7 @@ public class TooltipManager {
 
         TooltipData.BlockInfo info = new TooltipData.BlockInfo(
                 targetStack.getHoverName().getString(),
-                capitalize(modId),
+                TooltipOverlayRendererUtils.capitalize(modId),
                 modId,
                 ItemStack.EMPTY, // Évite le doublon d'icône avec le titre
                 List.of(),
@@ -238,63 +236,6 @@ public class TooltipManager {
                 (List<ItemStack>[]) new List[]{previewList}, new String[]{null}
         );
 
-        renderFinal(event, mc, info, itemAccessor, 0f);
-    }
-
-    private static String capitalize(String str) {
-        if (str == null || str.isEmpty()) return "Minecraft";
-        return str.substring(0, 1).toUpperCase() + str.substring(1).toLowerCase();
-    }
-
-    private static void renderFinal(RenderGuiEvent.Post event, Minecraft mc, TooltipData.BlockInfo info, IBlockAccessor accessor, float progress) {
-        long timeSinceFinish = System.currentTimeMillis() - finishTime;
-        TooltipOverlayRenderer.render(
-                event.getGuiGraphics(),
-                mc.font,
-                info,
-                accessor,
-                progress,
-                timeSinceFinish,
-                mc.getWindow().getGuiScaledWidth(),
-                mc.getWindow().getGuiScaledHeight()
-        );
-    }
-
-    private static void updateProgress(BlockPos pos, float currentProgress, BlockState state) {
-        long currentTime = System.currentTimeMillis();
-        float deltaTime = (currentTime - lastTimeMillis) / 1000f;
-        lastTimeMillis = currentTime;
-
-        Minecraft mc = Minecraft.getInstance();
-
-        if (lastTargetPos != null && (pos == null || !pos.equals(lastTargetPos))) {
-            if (mc.level != null && mc.level.getBlockState(lastTargetPos).isAir()) {
-                visualProgress = 1.0f;
-                finishTime = currentTime;
-            }
-        }
-
-        if (pos != null && !pos.equals(lastTargetPos)) {
-            if (visualProgress < 0.90f) visualProgress = 0f;
-            lastTargetPos = pos;
-        }
-
-        if (currentProgress > 0 && state != null) {
-            float destroySpeedPerTick = state.getDestroyProgress(mc.player, mc.level, pos);
-            if (destroySpeedPerTick >= 1.0f) {
-                visualProgress = 1.0f;
-            } else {
-                float speedPerSecond = destroySpeedPerTick * 20f;
-                visualProgress += speedPerSecond * deltaTime;
-                float maxAllowed = currentProgress + 0.1f;
-                if (visualProgress > maxAllowed) visualProgress = maxAllowed;
-                visualProgress = Math.min(visualProgress, 0.98f);
-            }
-        } else {
-            long timeSinceFinish = currentTime - finishTime;
-            if (timeSinceFinish > 150) {
-                visualProgress = Math.max(0, visualProgress - (deltaTime * 4.0f));
-            }
-        }
+        TooltipOverlayRendererUtils.renderFinal(event, mc, info, itemAccessor, 0f);
     }
 }

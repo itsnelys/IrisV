@@ -1,4 +1,4 @@
-package net.opal.irisv.tooltips.providers;
+package net.opal.irisv.tooltips.providers.specific;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
@@ -11,6 +11,7 @@ import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.level.block.state.properties.Property;
 import net.opal.irisv.api.IBlockTooltipProvider;
 import net.opal.irisv.api.IBlockAccessor;
+import net.opal.irisv.option.ConfigOptions;
 
 import java.util.List;
 
@@ -23,44 +24,44 @@ public class AgricultureTooltipProvider implements IBlockTooltipProvider {
 
     @Override
     public void addTooltip(List<String> info, IBlockAccessor accessor) {
-        // Extraction des données de l'accessor
-        BlockState state = accessor.state();
-        Level level = accessor.level();
-        BlockPos pos = accessor.pos();
-        Block block = state.getBlock();
+        if (ConfigOptions.getInstance().advancedTooltips) {
+            // Extraction des données de l'accessor
+            BlockState state = accessor.state();
+            Level level = accessor.level();
+            BlockPos pos = accessor.pos();
+            Block block = state.getBlock();
 
-        // 1. LOGIQUE VERTICALE (Hauteur & Potentiel)
-        if (isVerticalPlant(state)) {
-            int totalHeight = getTotalHeight(level, pos, block);
-            info.add("Total Height: §e" + totalHeight + " blocks");
+            // 1. LOGIQUE VERTICALE (Hauteur & Potentiel)
+            if (isVerticalPlant(state)) {
+                int totalHeight = getTotalHeight(level, pos, block);
+                info.add("Total Height: §e" + totalHeight + " blocks");
 
-            if (state.is(Blocks.SUGAR_CANE) || state.is(Blocks.CACTUS)) {
-                if (totalHeight >= 3) info.add("Growth: §cMax Height");
-                else info.add("Potential: §b+" + (3 - totalHeight) + " blocks");
-            }
-            else if (isComplexPlant(block)) {
-                BlockPos headPos = findHeadBlock(level, pos, state);
-                BlockState headState = level.getBlockState(headPos);
-                if (headState.hasProperty(BlockStateProperties.AGE_25)) {
-                    int age = headState.getValue(BlockStateProperties.AGE_25);
-                    info.add(age >= 25 ? "Growth: §cMax" : "Potential: §b+" + (25 - age) + " blocks");
+                if (state.is(Blocks.SUGAR_CANE) || state.is(Blocks.CACTUS)) {
+                    if (totalHeight >= 3) info.add("Growth: §cMax Height");
+                    else info.add("Potential: §b+" + (3 - totalHeight) + " blocks");
+                } else if (isComplexPlant(block)) {
+                    BlockPos headPos = findHeadBlock(level, pos, state);
+                    BlockState headState = level.getBlockState(headPos);
+                    if (headState.hasProperty(BlockStateProperties.AGE_25)) {
+                        int age = headState.getValue(BlockStateProperties.AGE_25);
+                        info.add(age >= 25 ? "Growth: §cMax" : "Potential: §b+" + (25 - age) + " blocks");
+                    }
                 }
             }
-        }
-        // 2. LOGIQUE CLASSIQUE (Pourcentages %)
-        else {
-            checkAge(state, info);
-        }
+            // 2. LOGIQUE CLASSIQUE (Pourcentages %)
+            else {
+                checkAge(state, info);
+            }
 
-        // 3. HUMIDITÉ DU SOL
-        if (state.hasProperty(BlockStateProperties.MOISTURE)) {
-            int m = state.getValue(BlockStateProperties.MOISTURE);
-            int percent = (int) ((m / 7.0f) * 100);
-            String color = percent > 0 ? "§b" : "§6";
-            info.add("Moisture: " + color + percent + "%");
+            // 3. HUMIDITÉ DU SOL
+            if (state.hasProperty(BlockStateProperties.MOISTURE)) {
+                int m = state.getValue(BlockStateProperties.MOISTURE);
+                int percent = (int) ((m / 7.0f) * 100);
+                String color = percent > 0 ? "§b" : "§6";
+                info.add("Moisture: " + color + percent + "%");
+            }
         }
     }
-
     // --- MÉTHODES UTILITAIRES (Inchangées, mais utilisent les bons types) ---
 
     private boolean isVerticalPlant(BlockState state) {
@@ -83,15 +84,17 @@ public class AgricultureTooltipProvider implements IBlockTooltipProvider {
         Block block = state.getBlock();
         if (isComplexPlant(block) || state.is(Blocks.SUGAR_CANE) || state.is(Blocks.CACTUS)) return;
 
-        for (Property<?> property : state.getProperties()) {
-            if (property instanceof IntegerProperty ageProp && property.getName().equalsIgnoreCase("age")) {
-                int currentAge = state.getValue(ageProp);
-                int maxAge = ageProp.getPossibleValues().stream().mapToInt(v -> v).max().orElse(0);
-                if (maxAge > 0) {
-                    int percent = (int) ((currentAge / (float) maxAge) * 100);
-                    info.add("Growth: §f" + percent + "%");
+        if (ConfigOptions.getInstance().advancedTooltips) {
+            for (Property<?> property : state.getProperties()) {
+                if (property instanceof IntegerProperty ageProp && property.getName().equalsIgnoreCase("age")) {
+                    int currentAge = state.getValue(ageProp);
+                    int maxAge = ageProp.getPossibleValues().stream().mapToInt(v -> v).max().orElse(0);
+                    if (maxAge > 0) {
+                        int percent = (int) ((currentAge / (float) maxAge) * 100);
+                        info.add("Growth: §f" + percent + "%");
+                    }
+                    return;
                 }
-                return;
             }
         }
     }

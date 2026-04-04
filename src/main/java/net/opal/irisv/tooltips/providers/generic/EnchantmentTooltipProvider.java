@@ -7,6 +7,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.opal.irisv.api.IBlockTooltipProvider;
 import net.opal.irisv.api.IBlockAccessor;
+import net.opal.irisv.option.ConfigOptions;
 
 import java.util.List;
 
@@ -19,35 +20,36 @@ public class EnchantmentTooltipProvider implements IBlockTooltipProvider {
 
     @Override
     public void addTooltip(List<String> info, IBlockAccessor accessor) {
-        BlockState state = accessor.state();
-        Level level = accessor.level();
-        BlockPos pos = accessor.pos();
+        if (ConfigOptions.getInstance().advancedTooltips) {
+            BlockState state = accessor.state();
+            Level level = accessor.level();
+            BlockPos pos = accessor.pos();
 
-        // 1. CASE 1: Enchanting Table (Global Calculation)
-        if (state.is(Blocks.ENCHANTING_TABLE)) {
-            float totalPower = calculateEnchantPower(level, pos);
-            info.add("Enchanting Power: §b" + formatPower(totalPower));
+            // 1. CASE 1: Enchanting Table (Global Calculation)
+            if (state.is(Blocks.ENCHANTING_TABLE)) {
+                float totalPower = calculateEnchantPower(level, pos);
+                info.add("Enchanting Power: §b" + formatPower(totalPower));
 
-            if (totalPower < 15.0F) {
-                // Simple progress message
-                info.add("§8(" + formatPower(totalPower) + "/15 for full potential)");
-            } else if (totalPower == 15.0F) {
-                // Exactly 15
-                info.add("§aFull potential reached");
-            } else {
-                // More than 15
-                info.add("§dBonus power §7(+" + formatPower(totalPower - 15.0F) + ")");
+                if (totalPower < 15.0F) {
+                    // Simple progress message
+                    info.add("§8(" + formatPower(totalPower) + "/15 for full potential)");
+                } else if (totalPower == 15.0F) {
+                    // Exactly 15
+                    info.add("§aFull potential reached");
+                } else {
+                    // More than 15
+                    info.add("§dBonus power §7(+" + formatPower(totalPower - 15.0F) + ")");
+                }
             }
-        }
-        // 2. CAS 2 : Une Bibliothèque (Calcul individuel)
-        else {
-            float power = state.getEnchantPowerBonus(level, pos);
-            if (power > 0) {
-                info.add("Ench Power: §f+" + formatPower(power));
+            // 2. CAS 2 : Une Bibliothèque (Calcul individuel)
+            else {
+                float power = state.getEnchantPowerBonus(level, pos);
+                if (power > 0) {
+                    info.add("Ench Power: §f+" + formatPower(power));
+                }
             }
         }
     }
-
     private float calculateEnchantPower(Level level, BlockPos tablePos) {
         float totalPower = 0;
         // Scan du périmètre 5x5 autour de la table pour trouver les bibliothèques

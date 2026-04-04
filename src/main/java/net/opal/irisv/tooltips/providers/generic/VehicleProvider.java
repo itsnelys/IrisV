@@ -4,6 +4,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.vehicle.*;
 import net.opal.irisv.api.IBlockAccessor;
 import net.opal.irisv.api.IEntityTooltipProvider;
+import net.opal.irisv.option.ConfigOptions;
 
 import java.util.List;
 
@@ -25,12 +26,14 @@ public class VehicleProvider implements IEntityTooltipProvider {
             // On nettoie pour ne garder que le type de bois
             String wood = id.replace("_chest_boat", "").replace("_boat", "").replace("_", " ");
 
-            // Affichage des passagers
-            int passengers = boat.getPassengers().size();
-            int max = (entity instanceof ChestBoat) ? 1 : 2; // Un bateau coffre n'a qu'une place
+            if (ConfigOptions.getInstance().advancedTooltips) {
+                // Affichage des passagers
+                int passengers = boat.getPassengers().size();
+                int max = (entity instanceof ChestBoat) ? 1 : 2; // Un bateau coffre n'a qu'une place
 
-            if (passengers > 0) {
-                tooltip.add("§7Passagers: §f" + passengers + "/" + max);
+                if (passengers > 0) {
+                    tooltip.add("§7Passagers: §f" + passengers + "/" + max);
+                }
             }
         }
     }

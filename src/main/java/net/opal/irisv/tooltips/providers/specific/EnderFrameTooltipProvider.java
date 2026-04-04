@@ -1,4 +1,4 @@
-package net.opal.irisv.tooltips.providers;
+package net.opal.irisv.tooltips.providers.specific;
 
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -6,6 +6,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.opal.irisv.api.IBlockTooltipProvider;
 import net.opal.irisv.api.IBlockAccessor;
+import net.opal.irisv.option.ConfigOptions;
 
 import java.util.List;
 
@@ -18,18 +19,20 @@ public class EnderFrameTooltipProvider implements IBlockTooltipProvider {
 
     @Override
     public void addTooltip(List<String> info, IBlockAccessor accessor) {
-        // Récupération de l'état du bloc via l'accessor
-        BlockState state = accessor.state();
+        if (ConfigOptions.getInstance().advancedTooltips) {
+            // Récupération de l'état du bloc via l'accessor
+            BlockState state = accessor.state();
 
-        if (state.hasProperty(BlockStateProperties.EYE)) {
-            boolean hasEye = state.getValue(BlockStateProperties.EYE);
+            if (state.hasProperty(BlockStateProperties.EYE)) {
+                boolean hasEye = state.getValue(BlockStateProperties.EYE);
 
-            // Affichage propre avec couleurs
-            String status = hasEye ? "§aInserted" : "§7Empty";
-            info.add("End Eye: " + status);
+                // Affichage propre avec couleurs
+                String status = hasEye ? "§aInserted" : "§7Empty";
+                info.add("End Eye: " + status);
 
-            if (!hasEye) {
-                info.add("§8(Empty)");
+                if (!hasEye) {
+                    info.add("§8(Empty)");
+                }
             }
         }
     }

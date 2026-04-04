@@ -1,10 +1,9 @@
-package net.opal.irisv.tooltips.providers;
+package net.opal.irisv.tooltips.providers.specific;
 
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -14,6 +13,7 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec2;
 import net.opal.irisv.api.IBlockAccessor;
 import net.opal.irisv.api.IBlockTooltipProvider;
+import net.opal.irisv.option.ConfigOptions;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -28,50 +28,52 @@ public class ChiseledBookshelfTooltipProvider implements IBlockTooltipProvider {
 
     @Override
     public void addTooltip(List<String> info, IBlockAccessor accessor) {
-        CompoundTag data = accessor.serverData();
+        if (ConfigOptions.getInstance().advancedTooltips) {
+            CompoundTag data = accessor.serverData();
 
-        // On vérifie "Items" (format standard) ou nos données injectées
-        if (data == null || !data.contains("Items", 9)) {
-            return;
-        }
+            // On vérifie "Items" (format standard) ou nos données injectées
+            if (data == null || !data.contains("Items", 9)) {
+                return;
+            }
 
-        ListTag tagList = data.getList("Items", 10);
-        List<ItemStack> allBooks = new ArrayList<>();
+            ListTag tagList = data.getList("Items", 10);
+            List<ItemStack> allBooks = new ArrayList<>();
 
-        // Pré-chargement de tous les livres pour la preview globale
-        for (int i = 0; i < tagList.size(); i++) {
-            ItemStack stack = parseSmartStack(tagList.getCompound(i), accessor);
-            if (!stack.isEmpty()) allBooks.add(stack);
-        }
+            // Pré-chargement de tous les livres pour la preview globale
+            for (int i = 0; i < tagList.size(); i++) {
+                ItemStack stack = parseSmartStack(tagList.getCompound(i), accessor);
+                if (!stack.isEmpty()) allBooks.add(stack);
+            }
 
-        boolean isLookingAtSlot = false;
-        if (accessor.hit() instanceof BlockHitResult hit) {
-            // Seule la face avant permet de voir les livres
-            Optional<Integer> hitSlot = getHitSlot(hit, accessor.state());
+            boolean isLookingAtSlot = false;
+            if (accessor.hit() instanceof BlockHitResult hit) {
+                // Seule la face avant permet de voir les livres
+                Optional<Integer> hitSlot = getHitSlot(hit, accessor.state());
 
-            if (hitSlot.isPresent()) {
-                isLookingAtSlot = true;
-                int slot = hitSlot.get();
-                ItemStack bookStack = getItemInSlot(tagList, slot, accessor);
+                if (hitSlot.isPresent()) {
+                    isLookingAtSlot = true;
+                    int slot = hitSlot.get();
+                    ItemStack bookStack = getItemInSlot(tagList, slot, accessor);
 
-                if (!bookStack.isEmpty()) {
-                    accessor.setIcon(bookStack);
-                    addBookDetails(info, bookStack, accessor);
+                    if (!bookStack.isEmpty()) {
+                        accessor.setIcon(bookStack);
+                        addBookDetails(info, bookStack, accessor);
 
-                    // On vide la preview pour focus sur le nom du livre
-                    accessor.setPreviewItems(new ArrayList<>());
-                } else {
-                    info.add("§8(Empty)");
-                    accessor.setPreviewItems(new ArrayList<>());
+                        // On vide la preview pour focus sur le nom du livre
+                        accessor.setPreviewItems(new ArrayList<>());
+                    } else {
+                        info.add("§8(Empty)");
+                        accessor.setPreviewItems(new ArrayList<>());
+                    }
                 }
             }
-        }
 
-        if (!isLookingAtSlot) {
-            if (allBooks.isEmpty()) {
-                info.add("§8(Empty)");
-            } else {
-                accessor.setPreviewItems(allBooks);
+            if (!isLookingAtSlot) {
+                if (allBooks.isEmpty()) {
+                    info.add("§8(Empty)");
+                } else {
+                    accessor.setPreviewItems(allBooks);
+                }
             }
         }
     }

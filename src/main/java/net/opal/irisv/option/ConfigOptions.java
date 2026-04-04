@@ -18,6 +18,14 @@ public class ConfigOptions {
     public boolean enableDebugChat = false;
     public boolean enableBlockTooltipOverlay = false;
 
+    public boolean advancedTooltips = true;
+    public boolean advancedLiquidStats = true;
+
+    public boolean enableIndicators = true;           // Switch ON/OFF global
+    public int indicatorPosition = 2;                 // 1: Gauche, 2: Droite
+
+    public boolean enableEntityTooltip = true;
+
     public int themeIndex = 0;
 
     // Dans ConfigOptions.java

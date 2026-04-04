@@ -32,11 +32,12 @@ public class ServerDataSenderContainer {
 
         // 2. Récupération des entités de bloc
         BlockEntity targetBE = player.level().getBlockEntity(pos);
+        if (targetBE == null) return; // Sécurité : On a besoin d'un BE pour la suite
+
         BlockEntity neighborBE = getNeighborChest(player, pos, state);
 
         // 3. Détermination du Master Unique (Pivot stable)
         BlockPos masterPos = getMasterPos(pos, neighborBE);
-        if (targetBE == null) return;
 
         // 4. Calcul du hash global pour vérifier les changements
         int currentHash = calculateGlobalHash(player, masterPos, player.level().getBlockState(masterPos), targetBE, neighborBE);
@@ -46,18 +47,74 @@ public class ServerDataSenderContainer {
             CompoundTag data = targetBE.saveWithFullMetadata(player.level().registryAccess());
             cleanInventoryTags(data);
 
+            // --- AJOUT : DÉTECTION AUTO DES FLUIDES (SERVER-SIDE) ---
+            // On récupère la Capability fluide ici, sur le serveur, pour avoir les vraies valeurs.
+            var fluidHandler = player.level().getCapability(Capabilities.FluidHandler.BLOCK, pos, state, targetBE, null);
+            if (fluidHandler != null && fluidHandler.getTanks() > 0) {
+                // On envoie les données du premier tank (ou on boucle si besoin)
+                // Ces clés seront lues par ton GenericFluidProvider.java
+                data.putLong("RealAmount", fluidHandler.getFluidInTank(0).getAmount());
+                data.putLong("RealCapacity", fluidHandler.getTankCapacity(0));
+            }
+
+// --- AJOUT : LOGIQUE TYPE JADE POUR LES FOURS ---
+            if (targetBE instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity furnace) {
+                int burnTime = 0;
+                int burnDuration = 0;
+                int cookTime = 0;
+                int cookTimeTotal = 0;
+
+                try {
+                    // Comme Jade, on va chercher le champ 'data' qui est de type ContainerData
+                    // On utilise getDeclaredField sur la classe parente (AbstractFurnaceBlockEntity)
+                    java.lang.reflect.Field dataField = net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity.class.getDeclaredField("data");
+                    dataField.setAccessible(true); // On force l'ouverture du cadenas "protected"
+
+                    net.minecraft.world.inventory.ContainerData furnaceData = (net.minecraft.world.inventory.ContainerData) dataField.get(furnace);
+
+                    if (furnaceData != null) {
+                        // Index standards Minecraft pour les fours :
+                        burnTime = furnaceData.get(0);      // Temps de fuel restant
+                        burnDuration = furnaceData.get(1);  // Durée totale du dernier combustible
+                        cookTime = furnaceData.get(2);      // Progression de la flèche
+                        cookTimeTotal = furnaceData.get(3); // Temps total requis pour l'item
+                    }
+                } catch (Exception e) {
+                    // Si le champ ne s'appelle pas "data" (mappings différents), on cherche par TYPE
+                    try {
+                        for (java.lang.reflect.Field field : net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity.class.getDeclaredFields()) {
+                            if (field.getType() == net.minecraft.world.inventory.ContainerData.class) {
+                                field.setAccessible(true);
+                                net.minecraft.world.inventory.ContainerData fd = (net.minecraft.world.inventory.ContainerData) field.get(furnace);
+                                burnTime = fd.get(0);
+                                burnDuration = fd.get(1);
+                                cookTime = fd.get(2);
+                                cookTimeTotal = fd.get(3);
+                                break;
+                            }
+                        }
+                    } catch (Exception ignored) {}
+                }
+
+                // On injecte les valeurs trouvées dans le NBT qui sera envoyé au client
+                data.putInt("BurnTime", burnTime);
+                data.putInt("BurnDuration", burnDuration);
+                data.putInt("CookTime", cookTime);
+                data.putInt("CookTimeTotal", cookTimeTotal);
+            }
+
             // Fusion des inventaires (Simple ou Double coffre)
             ListTag combined = new ListTag();
             fillCombinedInventory(player, pos, state, targetBE, neighborBE, combined);
-
             data.put("Items", combined);
 
-            // Envoi des données
+            // Envoi des données (Synchronisation Client/Serveur)
             ServerDataSender.sendRawData(player, pos, data);
             if (neighborBE != null) {
                 ServerDataSender.sendRawData(player, neighborBE.getBlockPos(), data);
             }
 
+            // Mise à jour du cache pour éviter d'envoyer le paquet en boucle
             ServerDataSender.updateCache(uuid, masterPos, currentHash);
         }
     }
@@ -181,16 +238,34 @@ public class ServerDataSenderContainer {
 
     public static int getBEInventoryHash(ServerPlayer player, BlockPos pos, BlockState state, BlockEntity be) {
         if (be == null) return 0;
+
+        int h = 0;
+
+        // 1. Hash de l'inventaire via IItemHandler (Capacité Forge/NeoForge)
         IItemHandler handler = player.level().getCapability(Capabilities.ItemHandler.BLOCK, pos, state, be, null);
         if (handler != null) {
-            int h = 0;
             for (int i = 0; i < handler.getSlots(); i++) {
                 var s = handler.getStackInSlot(i);
-                if (!s.isEmpty()) h += i + s.getItem().hashCode() + s.getCount() + s.getComponents().hashCode();
+                if (!s.isEmpty()) {
+                    // On combine l'index, l'item, la quantité et les composants (enchantements, etc.)
+                    h += i + s.getItem().hashCode() + s.getCount() + s.getComponents().hashCode();
+                }
             }
-            return h;
         }
-        return (be instanceof Container c) ? getContainerHash(c) : 0;
+        // Fallback pour les containers classiques si nécessaire
+        else if (be instanceof net.minecraft.world.Container c) {
+            for (int i = 0; i < c.getContainerSize(); i++) {
+                var s = c.getItem(i);
+                if (!s.isEmpty()) h += i + s.getItem().hashCode() + s.getCount();
+            }
+        }
+
+        // --- MISE À JOUR : HASH GLOBAL DU NBT ---
+        // Cette ligne garantit que CookTime, BurnTime et tout autre tag
+        // provoquent une mise à jour réseau dès qu'ils changent d'une unité.
+        h += be.saveWithFullMetadata(player.level().registryAccess()).hashCode();
+
+        return h;
     }
 
     public static int getContainerHash(Container c) {

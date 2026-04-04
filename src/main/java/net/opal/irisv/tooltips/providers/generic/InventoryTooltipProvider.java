@@ -5,10 +5,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.world.Container;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.capabilities.Capabilities;
@@ -16,6 +13,7 @@ import net.opal.irisv.api.IBlockAccessor;
 import net.opal.irisv.api.IBlockTooltipProvider;
 import net.opal.irisv.commun.utils.StorageUtils;
 import net.opal.irisv.network.ClientDataCache;
+import net.opal.irisv.option.ConfigOptions;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -35,31 +33,33 @@ public class InventoryTooltipProvider implements IBlockTooltipProvider {
 
     @Override
     public void addTooltip(List<String> info, IBlockAccessor accessor) {
-        Map<String, ItemStack> combinedItems = new LinkedHashMap<>();
-        BlockPos masterPos = StorageUtils.getActualTarget(accessor.level(), accessor.pos(), accessor.state());
-        CompoundTag data = accessor.serverData();
+        if (ConfigOptions.getInstance().advancedTooltips) {
+            Map<String, ItemStack> combinedItems = new LinkedHashMap<>();
+            BlockPos masterPos = StorageUtils.getActualTarget(accessor.level(), accessor.pos(), accessor.state());
+            CompoundTag data = accessor.serverData();
 
-        if ((data == null || data.isEmpty()) && !masterPos.equals(accessor.pos())) {
-            data = ClientDataCache.get(masterPos);
-        }
-
-        if (data != null && !data.isEmpty()) {
-            if (data.contains("Items", Tag.TAG_LIST)) {
-                mergeList(data.getList("Items", Tag.TAG_COMPOUND), combinedItems, accessor);
-            } else {
-                findAndMerge(data, combinedItems, accessor);
+            if ((data == null || data.isEmpty()) && !masterPos.equals(accessor.pos())) {
+                data = ClientDataCache.get(masterPos);
             }
-        }
 
-        if (combinedItems.isEmpty()) {
-            BlockEntity targetBE = accessor.level().getBlockEntity(masterPos);
-            if (targetBE != null) {
-                readDirectlyFromBE(accessor, masterPos, targetBE, combinedItems);
+            if (data != null && !data.isEmpty()) {
+                if (data.contains("Items", Tag.TAG_LIST)) {
+                    mergeList(data.getList("Items", Tag.TAG_COMPOUND), combinedItems, accessor);
+                } else {
+                    findAndMerge(data, combinedItems, accessor);
+                }
             }
-        }
 
-        if (!combinedItems.isEmpty()) {
-            accessor.setPreviewItems(new ArrayList<>(combinedItems.values()));
+            if (combinedItems.isEmpty()) {
+                BlockEntity targetBE = accessor.level().getBlockEntity(masterPos);
+                if (targetBE != null) {
+                    readDirectlyFromBE(accessor, masterPos, targetBE, combinedItems);
+                }
+            }
+
+            if (!combinedItems.isEmpty()) {
+                accessor.setPreviewItems(new ArrayList<>(combinedItems.values()));
+            }
         }
     }
 

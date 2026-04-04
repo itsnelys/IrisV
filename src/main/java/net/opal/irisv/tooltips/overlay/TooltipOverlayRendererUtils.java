@@ -4,12 +4,16 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.RenderType;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.DiggerItem;
 import net.minecraft.world.item.ShearsItem;
 import net.minecraft.world.level.block.state.BlockState;
+import net.neoforged.neoforge.client.event.RenderGuiEvent;
+import net.opal.irisv.api.IBlockAccessor;
 import net.opal.irisv.tooltips.TooltipData;
+import net.opal.irisv.tooltips.TooltipOverlayRenderer;
 import net.opal.irisv.tooltips.helpers.TooltipColorManager;
 import net.opal.irisv.theme.UiTheme;
 
@@ -109,5 +113,67 @@ public class TooltipOverlayRendererUtils {
             }
             pose.popPose();
         }
+    }
+
+    public static BlockPos lastTargetPos = null;
+    public static float visualProgress = 0f;
+    public static long lastTimeMillis = System.currentTimeMillis();
+    public static long finishTime = 0;
+
+    public static void updateProgress(BlockPos pos, float currentProgress, BlockState state) {
+        long currentTime = System.currentTimeMillis();
+        float deltaTime = (currentTime - lastTimeMillis) / 1000f;
+        lastTimeMillis = currentTime;
+
+        Minecraft mc = Minecraft.getInstance();
+
+        if (lastTargetPos != null && (pos == null || !pos.equals(lastTargetPos))) {
+            if (mc.level != null && mc.level.getBlockState(lastTargetPos).isAir()) {
+                visualProgress = 1.0f;
+                finishTime = currentTime;
+            }
+        }
+
+        if (pos != null && !pos.equals(lastTargetPos)) {
+            if (visualProgress < 0.90f) visualProgress = 0f;
+            lastTargetPos = pos;
+        }
+
+        if (currentProgress > 0 && state != null) {
+            float destroySpeedPerTick = state.getDestroyProgress(mc.player, mc.level, pos);
+            if (destroySpeedPerTick >= 1.0f) {
+                visualProgress = 1.0f;
+            } else {
+                float speedPerSecond = destroySpeedPerTick * 20f;
+                visualProgress += speedPerSecond * deltaTime;
+                float maxAllowed = currentProgress + 0.1f;
+                if (visualProgress > maxAllowed) visualProgress = maxAllowed;
+                visualProgress = Math.min(visualProgress, 0.98f);
+            }
+        } else {
+            long timeSinceFinish = currentTime - finishTime;
+            if (timeSinceFinish > 150) {
+                visualProgress = Math.max(0, visualProgress - (deltaTime * 4.0f));
+            }
+        }
+    }
+
+    public static String capitalize(String str) {
+        if (str == null || str.isEmpty()) return "Minecraft";
+        return str.substring(0, 1).toUpperCase() + str.substring(1).toLowerCase();
+    }
+
+    public static void renderFinal(RenderGuiEvent.Post event, Minecraft mc, TooltipData.BlockInfo info, IBlockAccessor accessor, float progress) {
+        long timeSinceFinish = System.currentTimeMillis() - TooltipOverlayRendererUtils.finishTime;
+        TooltipOverlayRenderer.render(
+                event.getGuiGraphics(),
+                mc.font,
+                info,
+                accessor,
+                progress,
+                timeSinceFinish,
+                mc.getWindow().getGuiScaledWidth(),
+                mc.getWindow().getGuiScaledHeight()
+        );
     }
 }

@@ -1,6 +1,9 @@
 package net.opal.irisv;
 
+import net.minecraft.resources.ResourceLocation;
+import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
 import net.opal.irisv.event.onBlockBreak;
+import net.opal.irisv.indicators.IndicatorOverlayRenderer;
 import net.opal.irisv.menu.MainMenu;
 import net.opal.irisv.menu.MainMenuTitleOverlay;
 import net.opal.irisv.menu.MenuPause;
@@ -22,28 +25,37 @@ public class Irisv {
     public static final String MODID = "irisv";
     public static final Logger LOGGER = LogManager.getLogger();
 
-    // File d'attente de tâches serveur
     public Irisv(IEventBus modEventBus) {
         ConfigOptions.load();
 
-        // --- Bus d'Événements du MOD (modEventBus) ---
-        // Utilisé pour l'initialisation, comme l'enregistrement des paquets
+        // --- Bus d'Événements du MOD (Initialisation) ---
         modEventBus.register(NetworkHandler.class);
 
-        // --- Bus d'Événements NEOFORGE (NeoForge.EVENT_BUS) ---
-        // Utilisé pour les événements de jeu (ticks, rendus, clics)
+        // IMPORTANT : Enregistrement des Overlays (HUD) sur le bus du MOD
+        modEventBus.addListener(this::registerGuiLayers);
+
+        // --- Bus d'Événements NEOFORGE (Gameplay) ---
         NeoForge.EVENT_BUS.register(TooltipManager.class);
         NeoForge.EVENT_BUS.addListener(ConfigReloader::register);
-
-        // Enregistrement du sender pour le multijoueur
         NeoForge.EVENT_BUS.register(ServerDataSender.class);
-
         NeoForge.EVENT_BUS.register(onBlockBreak.class);
 
+        // Menus et Overlays de menu
         NeoForge.EVENT_BUS.register(MenuPause.class);
         NeoForge.EVENT_BUS.register(MainMenu.class);
         NeoForge.EVENT_BUS.register(MainMenuTitleOverlay.class);
+    }
 
+    /**
+     * Enregistre les couches de l'interface utilisateur (HUD)
+     */
+    private void registerGuiLayers(RegisterGuiLayersEvent event) {
+        event.registerAboveAll(
+                ResourceLocation.fromNamespaceAndPath(MODID, "indicators"),
+                (guiGraphics, deltaTracker) -> {
+                    // Ici deltaTracker est bien du type DeltaTracker attendu par le nouveau renderer
+                    IndicatorOverlayRenderer.render(guiGraphics, deltaTracker);
+                }
+        );
     }
 }
-

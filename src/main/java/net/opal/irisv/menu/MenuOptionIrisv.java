@@ -26,63 +26,82 @@ public class MenuOptionIrisv extends Screen {
         int bHeight = 20;
         int halfW = (bWidth - 4) / 2;
 
-        // --- ZONE GÉNÉRAL ---
-        // Ligne 1 : Debug Chat & Thème
+        // --- ZONE GÉNÉRALE (Y: 65) ---
         this.addRenderableWidget(Button.builder(getDebugButtonText(config.enableDebugChat), b -> {
-                    config.enableDebugChat = !config.enableDebugChat;
-                    b.setMessage(getDebugButtonText(config.enableDebugChat));
-                    config.save();
-                })
-                .pos(centerX - 100, 65)
-                .size(halfW, bHeight)
-                .build());
+            config.enableDebugChat = !config.enableDebugChat;
+            b.setMessage(getDebugButtonText(config.enableDebugChat));
+            config.save();
+        }).pos(centerX - 100, 65).size(halfW, bHeight).build());
+
+// 1. On définit le nombre total de thèmes disponibles
+// (C'est plus propre d'avoir une méthode statique ou un tableau dans UiTheme)
+        int totalThemes = 7; // Darkness, Frost, Elder, Abyss, Forest, Crimson, Valhalla
 
         this.addRenderableWidget(Button.builder(getThemeButtonText(config), b -> {
-                    config.themeIndex = (config.themeIndex + 1) % 2; // Alterne entre 0 et 1
-                    b.setMessage(getThemeButtonText(config));
-                    config.save();
-                })
-                .pos(centerX + 2, 65)
-                .size(halfW, bHeight)
-                .build());
+            // --- LE FIX : On boucle sur le nombre TOTAL de thèmes ---
+            config.themeIndex = (config.themeIndex + 1) % totalThemes;
 
-        // --- ZONE TOOLTIPS ---
-        // Ligne 2 : Overlay & Position Slider
+            b.setMessage(getThemeButtonText(config));
+            config.save();
+        }).pos(centerX + 2, 65).size(halfW, bHeight).build());
+
+        // --- ZONE TOOLTIPS (Y: 115+) ---
         this.addRenderableWidget(Button.builder(getOverlayButtonText(config.enableBlockTooltipOverlay), b -> {
-                    config.enableBlockTooltipOverlay = !config.enableBlockTooltipOverlay;
-                    b.setMessage(getOverlayButtonText(config.enableBlockTooltipOverlay));
-                    config.save();
-                })
-                .pos(centerX - 100, 125)
-                .size(halfW, bHeight)
-                .build());
+            config.enableBlockTooltipOverlay = !config.enableBlockTooltipOverlay;
+            b.setMessage(getOverlayButtonText(config.enableBlockTooltipOverlay));
+            config.save();
+        }).pos(centerX - 100, 115).size(halfW, bHeight).build());
 
-        this.addRenderableWidget(new PositionSlider(centerX + 2, 125, halfW, bHeight, config));
+        this.addRenderableWidget(new PositionSlider(centerX + 2, 115, halfW, bHeight, config));
 
-        // Ligne 3 : Mode Compact
+        this.addRenderableWidget(Button.builder(getAdvancedButtonText(config.advancedTooltips), b -> {
+            config.advancedTooltips = !config.advancedTooltips;
+            b.setMessage(getAdvancedButtonText(config.advancedTooltips));
+            config.save();
+        }).pos(centerX - 100, 140).size(halfW, bHeight).build());
+
+        this.addRenderableWidget(Button.builder(getLiquidAdvancedButtonText(config.advancedLiquidStats), b -> {
+            config.advancedLiquidStats = !config.advancedLiquidStats;
+            b.setMessage(getLiquidAdvancedButtonText(config.advancedLiquidStats));
+            config.save();
+        }).pos(centerX + 2, 140).size(halfW, bHeight).build());
+
+        this.addRenderableWidget(Button.builder(getEntityButtonText(config.enableEntityTooltip), b -> {
+            config.enableEntityTooltip = !config.enableEntityTooltip;
+            b.setMessage(getEntityButtonText(config.enableEntityTooltip));
+            config.save();
+        }).pos(centerX - 100, 165).size(bWidth, bHeight).build());
+
         this.addRenderableWidget(Button.builder(getCompactButtonText(config.compactMode), b -> {
-                    config.compactMode = !config.compactMode;
-                    b.setMessage(getCompactButtonText(config.compactMode));
-                    config.save();
-                })
-                .pos(centerX - 100, 150)
-                .size(bWidth, bHeight)
-                .build());
+            config.compactMode = !config.compactMode;
+            b.setMessage(getCompactButtonText(config.compactMode));
+            config.save();
+        }).pos(centerX - 100, 190).size(bWidth, bHeight).build());
+
+        // --- ZONE INDICATORS (Y: 235+) ---
+        this.addRenderableWidget(Button.builder(getIndicatorGlobalButtonText(config.enableIndicators), b -> {
+            config.enableIndicators = !config.enableIndicators;
+            b.setMessage(getIndicatorGlobalButtonText(config.enableIndicators));
+            config.save();
+        }).pos(centerX - 100, 235).size(halfW, bHeight).build());
+
+        this.addRenderableWidget(Button.builder(getIndicatorSideButtonText(config.indicatorPosition), b -> {
+            config.indicatorPosition = (config.indicatorPosition == 1) ? 2 : 1;
+            b.setMessage(getIndicatorSideButtonText(config.indicatorPosition));
+            config.save();
+        }).pos(centerX + 2, 235).size(halfW, bHeight).build());
 
         // --- BOUTON RETOUR ---
         this.addRenderableWidget(Button.builder(Component.translatable("menu.irisv.return"), b -> {
-                    if (this.minecraft != null) this.minecraft.setScreen(parent);
-                })
-                .pos(centerX - 100, this.height - 30)
-                .size(bWidth, bHeight)
-                .build());
+            if (this.minecraft != null) this.minecraft.setScreen(parent);
+        }).pos(centerX - 100, this.height - 30).size(bWidth, bHeight).build());
     }
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTicks) {
         UiTheme theme = UiTheme.getCurrent();
-
         guiGraphics.fill(0, 0, this.width, this.height, theme.gui_bgOverlay());
+
         super.render(guiGraphics, mouseX, mouseY, partialTicks);
 
         // Header
@@ -94,35 +113,40 @@ public class MenuOptionIrisv extends Screen {
         renderSectionsLayout(guiGraphics, theme);
     }
 
+    private void renderSectionsLayout(GuiGraphics guiGraphics, UiTheme theme) {
+        int centerX = this.width / 2;
+
+        // Section Général
+        guiGraphics.drawString(this.font, "§8> §7GÉNÉRAL", centerX - 100, 50, 0xFFFFFF, true);
+
+        // Section Tooltips
+        int sep1Y = 98;
+        guiGraphics.fill(centerX - 100, sep1Y, centerX + 100, sep1Y + 1, theme.gui_separatorLine());
+        guiGraphics.drawString(this.font, "§8> §7TOOLTIPS", centerX - 100, 105, 0xFFFFFF, true);
+
+        // Section Indicators
+        int sep2Y = 218;
+        guiGraphics.fill(centerX - 100, sep2Y, centerX + 100, sep2Y + 1, theme.gui_separatorLine());
+        guiGraphics.drawString(this.font, "§8> §7INDICATORS (HUD)", centerX - 100, 225, 0xFFFFFF, true);
+    }
+
     private void renderFooter(GuiGraphics g, UiTheme theme) {
         int footerY = this.height - 40;
         int centerX = this.width / 2;
         int holeLeft = centerX - 100;
         int holeRight = centerX + 100;
 
-        // Barres latérales et séparateurs
         g.fill(0, footerY, holeLeft, this.height, theme.gui_barColor());
         g.fill(0, footerY, holeLeft, footerY + 1, theme.gui_lineColor());
         g.fill(holeRight, footerY, this.width, this.height, theme.gui_barColor());
         g.fill(holeRight, footerY, this.width, footerY + 1, theme.gui_lineColor());
 
-        // Encadrement bouton retour
         g.fill(holeLeft, footerY, holeRight, this.height - 30, theme.gui_barColor());
         g.fill(holeLeft, footerY, holeRight, footerY + 1, theme.gui_lineColor());
         g.fill(holeLeft, this.height - 10, holeRight, this.height, theme.gui_barColor());
     }
 
-    private void renderSectionsLayout(GuiGraphics guiGraphics, UiTheme theme) {
-        int centerX = this.width / 2;
-        guiGraphics.drawString(this.font, "§8> §7GÉNÉRAL", centerX - 100, 50, 0xFFFFFF, true);
-
-        int sepY = 98;
-        guiGraphics.fill(centerX - 100, sepY, centerX + 100, sepY + 1, theme.gui_separatorLine());
-
-        guiGraphics.drawString(this.font, "§8> §7TOOLTIPS", centerX - 100, 110, 0xFFFFFF, true);
-    }
-
-    // --- HELPERS ---
+    // --- HELPERS DE TEXTE ---
     private Component getThemeButtonText(ConfigOptions config) {
         UiTheme theme = UiTheme.getCurrent();
         return Component.literal("Thème: " + theme.gui_valColor() + theme.name());
@@ -143,7 +167,33 @@ public class MenuOptionIrisv extends Screen {
         return Component.literal("Mode Compact: " + (on ? theme.gui_onColor() + "OUI" : theme.gui_offColor() + "NON"));
     }
 
-    // --- CLASSE INTERNE POUR LE SLIDER ---
+    private Component getAdvancedButtonText(boolean on) {
+        UiTheme theme = UiTheme.getCurrent();
+        return Component.literal("T-Adv: " + (on ? theme.gui_onColor() + "ON" : theme.gui_offColor() + "OFF"));
+    }
+
+    private Component getLiquidAdvancedButtonText(boolean on) {
+        UiTheme theme = UiTheme.getCurrent();
+        return Component.literal("L-Adv: " + (on ? theme.gui_onColor() + "ON" : theme.gui_offColor() + "OFF"));
+    }
+
+    private Component getEntityButtonText(boolean on) {
+        UiTheme theme = UiTheme.getCurrent();
+        return Component.literal("Entités: " + (on ? theme.gui_onColor() + "Activées" : theme.gui_offColor() + "Désactivées"));
+    }
+
+    private Component getIndicatorGlobalButtonText(boolean on) {
+        UiTheme theme = UiTheme.getCurrent();
+        return Component.literal("HUD: " + (on ? theme.gui_onColor() + "ON" : theme.gui_offColor() + "OFF"));
+    }
+
+    private Component getIndicatorSideButtonText(int pos) {
+        UiTheme theme = UiTheme.getCurrent();
+        String side = (pos == 1) ? "Gauche" : "Droite";
+        return Component.literal("Côté: " + theme.gui_valColor() + side);
+    }
+
+    // --- SLIDER DE POSITION ---
     private class PositionSlider extends AbstractSliderButton {
         private final ConfigOptions config;
 

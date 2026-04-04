@@ -1,4 +1,4 @@
-package net.opal.irisv.tooltips.providers;
+package net.opal.irisv.tooltips.providers.specific;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
@@ -20,11 +20,5 @@ public class EndCrystalProvider implements IEntityTooltipProvider {
 
         // Cible du rayon (BeamTarget)
         BlockPos beamTarget = crystal.getBeamTarget();
-        if (beamTarget != null) {
-            tooltip.add("§7Lien: §dSoin en cours");
-            tooltip.add("§8X: " + beamTarget.getX() + " Y: " + beamTarget.getY() + " Z: " + beamTarget.getZ());
-        } else {
-            tooltip.add("§7État: §7En attente");
-        }
     }
 }

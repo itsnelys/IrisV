@@ -7,6 +7,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.opal.irisv.api.IBlockAccessor;
 import net.opal.irisv.api.IBlockTooltipProvider;
+import net.opal.irisv.option.ConfigOptions;
 
 import java.util.List;
 
@@ -19,26 +20,28 @@ public class StructureBlockTooltipProvider implements IBlockTooltipProvider {
 
     @Override
     public void addTooltip(List<String> info, IBlockAccessor accessor) {
-        CompoundTag nbt = accessor.serverData();
-        if (nbt == null || !nbt.contains("name")) return;
+        if (ConfigOptions.getInstance().advancedTooltips) {
+            CompoundTag nbt = accessor.serverData();
+            if (nbt == null || !nbt.contains("name")) return;
 
-        String structureName = nbt.getString("name");
+            String structureName = nbt.getString("name");
 
-        if (structureName.isEmpty()) {
-            info.add("§8(Empty)");
-            return;
-        }
-
-        if (Screen.hasControlDown()) {
-            info.add("§bStructure Name:");
-            info.add("§7" + structureName);
-
-            // On peut aussi afficher le mode (SAVE, LOAD, CORNER, DATA)
-            if (nbt.contains("mode")) {
-                info.add("§8Mode: §7" + nbt.getString("mode"));
+            if (structureName.isEmpty()) {
+                info.add("§8(Empty)");
+                return;
             }
-        } else {
-            info.add("§8Hold §f[CTRL] §8for details");
+
+            if (Screen.hasControlDown()) {
+                info.add("§bStructure Name:");
+                info.add("§7" + structureName);
+
+                // On peut aussi afficher le mode (SAVE, LOAD, CORNER, DATA)
+                if (nbt.contains("mode")) {
+                    info.add("§8Mode: §7" + nbt.getString("mode"));
+                }
+            } else {
+                info.add("§8Hold §f[CTRL] §8for details");
+            }
         }
     }
 }

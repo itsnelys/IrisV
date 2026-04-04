@@ -1,20 +1,17 @@
-package net.opal.irisv.tooltips.overlay;
+package net.opal.irisv.tooltips.overlay.renderers;
 
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.world.item.ItemStack;
-import org.jetbrains.annotations.NotNull;
 import net.opal.irisv.theme.UiTheme;
+import net.opal.irisv.tooltips.overlay.TooltipOverlayRendererUtils;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 
-public class TooltipOverlayRendererBlock {
-
-    public static void renderInventoryPreview(GuiGraphics gui, Font font, @NotNull List<ItemStack> items, boolean hasCtrl, int x, int y) {
-        if (items.isEmpty()) return;
-
+public class TooltipOverlayRendererBlockContents {
+    public static void RenderBlockContents(GuiGraphics gui, Font font, @NotNull List<ItemStack> items, boolean hasCtrl, int x, int y) {
         UiTheme theme = UiTheme.getCurrent();
-
         int count = items.size();
         var pose = gui.pose();
         int renderY = y + 2;
@@ -69,7 +66,7 @@ public class TooltipOverlayRendererBlock {
                 ItemStack stack = items.get(i);
                 int dx = x + 26 + (slotX * 18);
                 gui.renderFakeItem(stack, dx, renderY);
-                renderCustomItemDecorations(gui, font, stack, dx, renderY);
+                TooltipOverlayRendererStack.renderStack(gui, font, stack, dx, renderY);
 
                 if (++slotX >= 9) {
                     slotX = 0;
@@ -99,34 +96,5 @@ public class TooltipOverlayRendererBlock {
             }
         }
     }
-    public static void renderCustomItemDecorations(GuiGraphics gui, Font font, ItemStack stack, int x, int y) {
-        UiTheme theme = UiTheme.getCurrent();
 
-        if (stack.getCount() <= 1 && !stack.isBarVisible()) return;
-
-        String text = TooltipOverlayRendererUtils.formatCount(stack.getCount());
-        int color = stack.getCount() > stack.getMaxStackSize() ? theme.block_countOverstackHex() : theme.block_countNormalHex();
-
-        // --- CALCUL DU SCALE DYNAMIQUE ---
-        // Valeur de base à 0.7f. Si le texte dépasse 3 caractères (ex: 10.5k), on réduit.
-        float baseScale = 0.7f;
-        if (text.length() > 3) {
-            // Réduit l'échelle de 0.1f par caractère supplémentaire, sans descendre sous 0.45f
-            baseScale = Math.max(0.45f, 0.7f - ((text.length() - 3) * 0.08f));
-        }
-
-        gui.pose().pushPose();
-
-        // On ajuste légèrement la position Y selon le scale pour que le texte reste en bas
-        float yOffset = 11f + (0.7f - baseScale) * 5f;
-
-        gui.pose().translate(x + 18, y + yOffset, 200);
-        gui.pose().scale(baseScale, baseScale, 1.0f);
-
-        int textWidth = font.width(text);
-        // On dessine avec un décalage à gauche (textWidth) pour l'alignement à droite
-        gui.drawString(font, text, -textWidth, 0, color, true);
-
-        gui.pose().popPose();
-    }
 }

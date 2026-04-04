@@ -5,6 +5,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.opal.irisv.api.IBlockTooltipProvider;
 import net.opal.irisv.api.IBlockAccessor;
+import net.opal.irisv.option.ConfigOptions;
 
 import java.util.List;
 
@@ -21,32 +22,30 @@ public class InteractionTooltipProvider implements IBlockTooltipProvider {
 
     @Override
     public void addTooltip(List<String> info, IBlockAccessor accessor) {
-        // On récupère le state directement depuis l'accessor
-        BlockState state = accessor.state();
+        if (ConfigOptions.getInstance().advancedTooltips) {
+            // On récupère le state directement depuis l'accessor
+            BlockState state = accessor.state();
 
-        // 2. Chaudron (Eau, Poudre de neige, lave)
-        if (state.hasProperty(BlockStateProperties.LEVEL_CAULDRON)) {
-            info.add("Level: §b" + state.getValue(BlockStateProperties.LEVEL_CAULDRON) + "/3");
-        }
 
-        // 3. Ancre de réapparition
-        if (state.hasProperty(BlockStateProperties.RESPAWN_ANCHOR_CHARGES)) {
-            info.add("Charges: §d" + state.getValue(BlockStateProperties.RESPAWN_ANCHOR_CHARGES) + "/4");
-        }
+            // 3. Ancre de réapparition
+            if (state.hasProperty(BlockStateProperties.RESPAWN_ANCHOR_CHARGES)) {
+                info.add("Charges: §d" + state.getValue(BlockStateProperties.RESPAWN_ANCHOR_CHARGES) + "/4");
+            }
 
-        // 4. Gâteau (Bites / Parts mangées)
-        if (state.hasProperty(BlockStateProperties.BITES)) {
-            info.add("Bites: §f" + state.getValue(BlockStateProperties.BITES) + "/6");
-        }
+            // 4. Gâteau (Bites / Parts mangées)
+            if (state.hasProperty(BlockStateProperties.BITES)) {
+                info.add("Bites: §f" + state.getValue(BlockStateProperties.BITES) + "/6");
+            }
 
-        // 5. Bougies
-        if (state.hasProperty(BlockStateProperties.CANDLES)) {
-            info.add("Candles: §f" + state.getValue(BlockStateProperties.CANDLES));
-        }
+            // 5. Bougies
+            if (state.hasProperty(BlockStateProperties.CANDLES)) {
+                info.add("Candles: §f" + state.getValue(BlockStateProperties.CANDLES));
+            }
 
-        // 6. Cornichons de mer
-        if (state.hasProperty(BlockStateProperties.PICKLES)) {
-            info.add("Pickles: §f" + state.getValue(BlockStateProperties.PICKLES));
+            // 6. Cornichons de mer
+            if (state.hasProperty(BlockStateProperties.PICKLES)) {
+                info.add("Pickles: §f" + state.getValue(BlockStateProperties.PICKLES));
+            }
         }
     }
 }

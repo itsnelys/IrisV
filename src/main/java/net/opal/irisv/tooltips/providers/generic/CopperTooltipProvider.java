@@ -4,6 +4,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.opal.irisv.api.IBlockTooltipProvider;
 import net.opal.irisv.api.IBlockAccessor;
+import net.opal.irisv.option.ConfigOptions;
 import net.opal.irisv.tooltips.helpers.TooltipCopperHelper;
 
 import java.util.List;
@@ -19,17 +20,19 @@ public class CopperTooltipProvider implements IBlockTooltipProvider {
 
     @Override
     public void addTooltip(List<String> info, IBlockAccessor accessor) {
-        // Extraction des données de l'accessor
-        // Plus besoin de ClientDataCache car le cuivre est géré par les BlockStates
-        var copper = TooltipCopperHelper.getInfo(accessor.level(), accessor.state(), accessor.pos());
+        if (ConfigOptions.getInstance().advancedTooltips) {
+            // Extraction des données de l'accessor
+            // Plus besoin de ClientDataCache car le cuivre est géré par les BlockStates
+            var copper = TooltipCopperHelper.getInfo(accessor.level(), accessor.state(), accessor.pos());
 
-        if (copper != null) {
-            info.add("Oxidation: " + copper.color() + copper.percent() + "% ");
+            if (copper != null) {
+                info.add("Oxidation: " + copper.color() + copper.percent() + "% ");
 
-            if (copper.isWaxed()) {
-                info.add("§6STATUS: §eWAXED §7(Protected)");
-            } else if (copper.percent() < 95) {
-                info.add("§8Status: §7Oxidizing...");
+                if (copper.isWaxed()) {
+                    info.add("§6STATUS: §eWAXED §7(Protected)");
+                } else if (copper.percent() < 95) {
+                    info.add("§8Status: §7Oxidizing...");
+                }
             }
         }
     }

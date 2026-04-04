@@ -1,14 +1,15 @@
-package net.opal.irisv.tooltips;
+package net.opal.irisv.tooltips.providers;
 
 import net.opal.irisv.api.IBlockTooltipProvider;
 import net.opal.irisv.tooltips.modded.MeltingSupportTooltipProvider;
-import net.opal.irisv.tooltips.providers.*;
+import net.opal.irisv.tooltips.providers.fluid.FluidTooltipProvider;
 import net.opal.irisv.tooltips.providers.generic.*;
+import net.opal.irisv.tooltips.providers.specific.*;
 
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-public class TooltipProviderRegistry {
+public class TooltipBlockProviderRegistry {
 
     // On utilise CopyOnWriteArrayList pour que les autres mods puissent
     // s'enregistrer en toute sécurité même pendant le chargement
