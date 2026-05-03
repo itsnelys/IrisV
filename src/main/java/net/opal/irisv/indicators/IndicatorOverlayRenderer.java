@@ -4,6 +4,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.opal.irisv.api.IIndicator;
 import net.opal.irisv.indicators.providers.ArmorIndicator;
+import net.opal.irisv.indicators.providers.ArrowIndicator;
 import net.opal.irisv.option.ConfigOptions;
 
 import java.util.ArrayList;
@@ -14,6 +15,7 @@ public class IndicatorOverlayRenderer {
 
     static {
         INDICATORS.add(new ArmorIndicator());
+        INDICATORS.add(new ArrowIndicator());
     }
 
     // Remplace 'float partialTick' par 'DeltaTracker deltaTracker'
