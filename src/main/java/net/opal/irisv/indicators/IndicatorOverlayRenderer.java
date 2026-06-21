@@ -36,7 +36,7 @@ public class IndicatorOverlayRenderer {
                 .mapToInt(IIndicator::getHeight)
                 .sum();
 
-        int x = (config.indicatorPosition == 1) ? 10 : (screenWidth - 26);
+        int x = config.indicatorPosition == ConfigOptions.IndicatorPosition.LEFT ? 10 : (screenWidth - 26);
         int currentY = (screenHeight / 2) - (totalHeight / 2);
 
         gui.pose().pushPose();
@@ -44,7 +44,6 @@ public class IndicatorOverlayRenderer {
 
         for (IIndicator indicator : INDICATORS) {
             if (indicator.isVisible()) {
-                // Ici, on passe le partialTick (float) à tes indicateurs (ArmorIndicator, etc.)
                 indicator.render(gui, x, currentY, partialTick);
                 currentY += indicator.getHeight() + 6;
             }

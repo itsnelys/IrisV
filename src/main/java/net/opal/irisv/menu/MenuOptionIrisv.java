@@ -14,7 +14,7 @@ public class MenuOptionIrisv extends Screen {
     private final Screen parent;
 
     public MenuOptionIrisv(Screen parent) {
-        super(Component.literal("IrisV Options"));
+        super(Component.translatable("menu.irisv.options"));
         this.parent = parent;
     }
 
@@ -26,26 +26,18 @@ public class MenuOptionIrisv extends Screen {
         int bHeight = 20;
         int halfW = (bWidth - 4) / 2;
 
-        // --- ZONE GÉNÉRALE (Y: 65) ---
         this.addRenderableWidget(Button.builder(getDebugButtonText(config.enableDebugChat), b -> {
             config.enableDebugChat = !config.enableDebugChat;
             b.setMessage(getDebugButtonText(config.enableDebugChat));
             config.save();
         }).pos(centerX - 100, 65).size(halfW, bHeight).build());
 
-// 1. On définit le nombre total de thèmes disponibles
-// (C'est plus propre d'avoir une méthode statique ou un tableau dans UiTheme)
-        int totalThemes = 7; // Darkness, Frost, Elder, Abyss, Forest, Crimson, Valhalla
-
         this.addRenderableWidget(Button.builder(getThemeButtonText(config), b -> {
-            // --- LE FIX : On boucle sur le nombre TOTAL de thèmes ---
-            config.themeIndex = (config.themeIndex + 1) % totalThemes;
-
+            config.theme = config.theme.next();
             b.setMessage(getThemeButtonText(config));
             config.save();
         }).pos(centerX + 2, 65).size(halfW, bHeight).build());
 
-        // --- ZONE TOOLTIPS (Y: 115+) ---
         this.addRenderableWidget(Button.builder(getOverlayButtonText(config.enableBlockTooltipOverlay), b -> {
             config.enableBlockTooltipOverlay = !config.enableBlockTooltipOverlay;
             b.setMessage(getOverlayButtonText(config.enableBlockTooltipOverlay));
@@ -78,7 +70,6 @@ public class MenuOptionIrisv extends Screen {
             config.save();
         }).pos(centerX - 100, 190).size(bWidth, bHeight).build());
 
-        // --- ZONE INDICATORS (Y: 235+) ---
         this.addRenderableWidget(Button.builder(getIndicatorGlobalButtonText(config.enableIndicators), b -> {
             config.enableIndicators = !config.enableIndicators;
             b.setMessage(getIndicatorGlobalButtonText(config.enableIndicators));
@@ -86,12 +77,11 @@ public class MenuOptionIrisv extends Screen {
         }).pos(centerX - 100, 235).size(halfW, bHeight).build());
 
         this.addRenderableWidget(Button.builder(getIndicatorSideButtonText(config.indicatorPosition), b -> {
-            config.indicatorPosition = (config.indicatorPosition == 1) ? 2 : 1;
+            config.indicatorPosition = config.indicatorPosition.next();
             b.setMessage(getIndicatorSideButtonText(config.indicatorPosition));
             config.save();
         }).pos(centerX + 2, 235).size(halfW, bHeight).build());
 
-        // --- BOUTON RETOUR ---
         this.addRenderableWidget(Button.builder(Component.translatable("menu.irisv.return"), b -> {
             if (this.minecraft != null) this.minecraft.setScreen(parent);
         }).pos(centerX - 100, this.height - 30).size(bWidth, bHeight).build());
@@ -104,10 +94,9 @@ public class MenuOptionIrisv extends Screen {
 
         super.render(guiGraphics, mouseX, mouseY, partialTicks);
 
-        // Header
         guiGraphics.fill(0, 0, this.width, 35, theme.gui_barColor());
         guiGraphics.fill(0, 34, this.width, 35, theme.gui_lineColor());
-        guiGraphics.drawCenteredString(this.font, "§l" + this.title.getString(), this.width / 2, 12, 0xFFFFFF);
+        guiGraphics.drawCenteredString(this.font, Component.literal("§l").append(this.title), this.width / 2, 12, 0xFFFFFF);
 
         renderFooter(guiGraphics, theme);
         renderSectionsLayout(guiGraphics, theme);
@@ -116,18 +105,15 @@ public class MenuOptionIrisv extends Screen {
     private void renderSectionsLayout(GuiGraphics guiGraphics, UiTheme theme) {
         int centerX = this.width / 2;
 
-        // Section Général
-        guiGraphics.drawString(this.font, "§8> §7GÉNÉRAL", centerX - 100, 50, 0xFFFFFF, true);
+        guiGraphics.drawString(this.font, section("menu.irisv.section.general"), centerX - 100, 50, 0xFFFFFF, true);
 
-        // Section Tooltips
         int sep1Y = 98;
         guiGraphics.fill(centerX - 100, sep1Y, centerX + 100, sep1Y + 1, theme.gui_separatorLine());
-        guiGraphics.drawString(this.font, "§8> §7TOOLTIPS", centerX - 100, 105, 0xFFFFFF, true);
+        guiGraphics.drawString(this.font, section("menu.irisv.section.tooltips"), centerX - 100, 105, 0xFFFFFF, true);
 
-        // Section Indicators
         int sep2Y = 218;
         guiGraphics.fill(centerX - 100, sep2Y, centerX + 100, sep2Y + 1, theme.gui_separatorLine());
-        guiGraphics.drawString(this.font, "§8> §7INDICATORS (HUD)", centerX - 100, 225, 0xFFFFFF, true);
+        guiGraphics.drawString(this.font, section("menu.irisv.section.indicators"), centerX - 100, 225, 0xFFFFFF, true);
     }
 
     private void renderFooter(GuiGraphics g, UiTheme theme) {
@@ -146,59 +132,70 @@ public class MenuOptionIrisv extends Screen {
         g.fill(holeLeft, this.height - 10, holeRight, this.height, theme.gui_barColor());
     }
 
-    // --- HELPERS DE TEXTE ---
     private Component getThemeButtonText(ConfigOptions config) {
         UiTheme theme = UiTheme.getCurrent();
-        return Component.literal("Thème: " + theme.gui_valColor() + theme.name());
+        return Component.translatable("menu.irisv.theme", colored(theme.gui_valColor(), Component.translatable(config.theme.translationKey())));
     }
 
     private Component getDebugButtonText(boolean on) {
         UiTheme theme = UiTheme.getCurrent();
-        return Component.literal("Debug Chat: " + (on ? theme.gui_onColor() + "Activé" : theme.gui_offColor() + "Désactivé"));
+        return Component.translatable("menu.irisv.debug_chat", state(on, theme));
     }
 
     private Component getOverlayButtonText(boolean on) {
         UiTheme theme = UiTheme.getCurrent();
-        return Component.literal("Overlay: " + (on ? theme.gui_onColor() + "ON" : theme.gui_offColor() + "OFF"));
+        return Component.translatable("menu.irisv.overlay", state(on, theme));
     }
 
     private Component getCompactButtonText(boolean on) {
         UiTheme theme = UiTheme.getCurrent();
-        return Component.literal("Mode Compact: " + (on ? theme.gui_onColor() + "OUI" : theme.gui_offColor() + "NON"));
+        return Component.translatable("menu.irisv.compact", state(on, theme));
     }
 
     private Component getAdvancedButtonText(boolean on) {
         UiTheme theme = UiTheme.getCurrent();
-        return Component.literal("T-Adv: " + (on ? theme.gui_onColor() + "ON" : theme.gui_offColor() + "OFF"));
+        return Component.translatable("menu.irisv.advanced_tooltips", state(on, theme));
     }
 
     private Component getLiquidAdvancedButtonText(boolean on) {
         UiTheme theme = UiTheme.getCurrent();
-        return Component.literal("L-Adv: " + (on ? theme.gui_onColor() + "ON" : theme.gui_offColor() + "OFF"));
+        return Component.translatable("menu.irisv.advanced_liquids", state(on, theme));
     }
 
     private Component getEntityButtonText(boolean on) {
         UiTheme theme = UiTheme.getCurrent();
-        return Component.literal("Entités: " + (on ? theme.gui_onColor() + "Activées" : theme.gui_offColor() + "Désactivées"));
+        return Component.translatable("menu.irisv.entities", state(on, theme));
     }
 
     private Component getIndicatorGlobalButtonText(boolean on) {
         UiTheme theme = UiTheme.getCurrent();
-        return Component.literal("HUD: " + (on ? theme.gui_onColor() + "ON" : theme.gui_offColor() + "OFF"));
+        return Component.translatable("menu.irisv.hud", state(on, theme));
     }
 
-    private Component getIndicatorSideButtonText(int pos) {
+    private Component getIndicatorSideButtonText(ConfigOptions.IndicatorPosition position) {
         UiTheme theme = UiTheme.getCurrent();
-        String side = (pos == 1) ? "Gauche" : "Droite";
-        return Component.literal("Côté: " + theme.gui_valColor() + side);
+        String key = position == ConfigOptions.IndicatorPosition.LEFT ? "menu.irisv.left" : "menu.irisv.right";
+        return Component.translatable("menu.irisv.side", colored(theme.gui_valColor(), Component.translatable(key)));
     }
 
-    // --- SLIDER DE POSITION ---
+    private static Component section(String key) {
+        return Component.literal("§8> §7").append(Component.translatable(key));
+    }
+
+    private static Component state(boolean on, UiTheme theme) {
+        return colored(on ? theme.gui_onColor() : theme.gui_offColor(),
+                Component.translatable(on ? "menu.irisv.on" : "menu.irisv.off"));
+    }
+
+    private static Component colored(String color, Component text) {
+        return Component.literal(color).append(text);
+    }
+
     private class PositionSlider extends AbstractSliderButton {
         private final ConfigOptions config;
 
         public PositionSlider(int x, int y, int width, int height, ConfigOptions config) {
-            super(x, y, width, height, Component.empty(), config.tooltipPosition / 4.0);
+            super(x, y, width, height, Component.empty(), config.tooltipPosition.legacyValue() / 4.0);
             this.config = config;
             updateMessage();
         }
@@ -206,21 +203,22 @@ public class MenuOptionIrisv extends Screen {
         @Override
         protected void updateMessage() {
             UiTheme theme = UiTheme.getCurrent();
-            String s = switch(config.tooltipPosition) {
-                case 1 -> "Haut G.";
-                case 2 -> "Haut D.";
-                case 3 -> "Bas G.";
-                case 4 -> "Bas D.";
-                default -> "Haut C.";
+            String key = switch(config.tooltipPosition) {
+                case TOP_LEFT -> "menu.irisv.position.top_left";
+                case TOP_RIGHT -> "menu.irisv.position.top_right";
+                case BOTTOM_LEFT -> "menu.irisv.position.bottom_left";
+                case BOTTOM_RIGHT -> "menu.irisv.position.bottom_right";
+                case TOP_CENTER -> "menu.irisv.position.top_center";
             };
-            setMessage(Component.literal("Pos: " + theme.gui_valColor() + s));
+            setMessage(Component.translatable("menu.irisv.position", colored(theme.gui_valColor(), Component.translatable(key))));
         }
 
         @Override
         protected void applyValue() {
             int newValue = Mth.clamp((int)(this.value * 4.99), 0, 4);
-            if (config.tooltipPosition != newValue) {
-                config.tooltipPosition = newValue;
+            ConfigOptions.TooltipPosition newPosition = ConfigOptions.TooltipPosition.fromSlider(newValue);
+            if (config.tooltipPosition != newPosition) {
+                config.tooltipPosition = newPosition;
                 config.save();
             }
         }

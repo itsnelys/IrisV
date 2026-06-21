@@ -124,7 +124,6 @@ public record UiTheme(
     public static UiTheme getCurrent() {
         ConfigOptions config = ConfigOptions.getInstance();
 
-        // On liste tous les thèmes dans l'ordre de ton menu
         UiTheme[] themes = {
                 DARKNESS, // 0
                 FROST,    // 1
@@ -135,12 +134,6 @@ public record UiTheme(
                 VALHALLA  // 6
         };
 
-        // Garde-fou : On vérifie que l'index est bien dans les limites du tableau
-        if (config.themeIndex >= 0 && config.themeIndex < themes.length) {
-            return themes[config.themeIndex];
-        }
-
-        // Par défaut, si l'index est bizarre, on retourne le thème Darkness
-        return DARKNESS;
+        return themes[config.theme.ordinal()];
     }
 }

@@ -18,6 +18,7 @@ import net.minecraft.world.phys.HitResult;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.items.IItemHandler;
 import net.opal.irisv.network.server.*;
 
@@ -32,7 +33,7 @@ public class ServerDataSender {
     @SubscribeEvent
     public static void onPlayerTick(PlayerTickEvent.Post event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
-        if (player.level().getGameTime() % 2 != 0) return;
+        if (player.level().getGameTime() % 5 != 0) return;
 
         HitResult hit = player.pick(5.0D, 0.0F, false);
         UUID uuid = player.getUUID();
@@ -45,6 +46,13 @@ public class ServerDataSender {
             LAST_POS.remove(uuid);
             LAST_DATA_HASH.remove(uuid);
         }
+    }
+
+    @SubscribeEvent
+    public static void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
+        UUID uuid = event.getEntity().getUUID();
+        LAST_POS.remove(uuid);
+        LAST_DATA_HASH.remove(uuid);
     }
 
     public static boolean shouldUpdate(UUID uuid, BlockPos masterPos, int hash) {

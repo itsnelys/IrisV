@@ -36,10 +36,11 @@ public class TooltipOverlayRenderer {
         int y;
 
         switch (config.tooltipPosition) {
-            case 1 -> { x = margin; y = margin; }
-            case 2 -> { x = screenWidth - layout.width() - margin; y = margin; }
-            case 3 -> { x = margin; y = screenHeight - layout.height() - margin; }
-            case 4 -> { x = screenWidth - layout.width() - margin; y = screenHeight - layout.height() - margin; }
+            case TOP_LEFT -> { x = margin; y = margin; }
+            case TOP_RIGHT -> { x = screenWidth - layout.width() - margin; y = margin; }
+            case BOTTOM_LEFT -> { x = margin; y = screenHeight - layout.height() - margin; }
+            case BOTTOM_RIGHT -> { x = screenWidth - layout.width() - margin; y = screenHeight - layout.height() - margin; }
+            case TOP_CENTER -> { x = (screenWidth - layout.width()) / 2; y = margin; }
             default -> { x = (screenWidth - layout.width()) / 2; y = margin; }
         }
 

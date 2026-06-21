@@ -98,7 +98,6 @@ public class InventoryTooltipProvider implements IBlockTooltipProvider {
         }
     }
 
-    // --- METHODE MISE À JOUR POUR SUPPORTER LES GROS NOMBRES ---
     private void mergeList(ListTag tagList, Map<String, ItemStack> combinedItems, IBlockAccessor accessor) {
         for (int i = 0; i < tagList.size(); i++) {
             CompoundTag itemTag = tagList.getCompound(i);

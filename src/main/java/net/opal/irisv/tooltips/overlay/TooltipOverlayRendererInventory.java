@@ -22,7 +22,6 @@ public class TooltipOverlayRendererInventory {
     public static void renderInventoryPreview(GuiGraphics gui, Font font, @NotNull List<ItemStack> items, boolean hasCtrl, int x, int y, BlockState state, @Nullable BlockEntity be, TooltipData.BlockInfo info) {
         if (items.isEmpty()) return;
 
-        // 1. On interroge ton nouveau Registre Special
         for (IBlockPreviewRenderer renderer : TooltipBlockSpecialProviderRegistry.getRenderers()) {
             if (renderer.isApplicable(state, be)) {
                 renderer.render(gui, font, items, x, y, state, be, info);

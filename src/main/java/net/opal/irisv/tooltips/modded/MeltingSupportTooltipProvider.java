@@ -4,7 +4,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.opal.irisv.api.IBlockTooltipProvider;
-import net.opal.irisv.api.IBlockAccessor; // Nouveau standard
+import net.opal.irisv.api.IBlockAccessor;
 
 import java.util.List;
 
@@ -33,7 +33,7 @@ public class MeltingSupportTooltipProvider implements IBlockTooltipProvider {
 
                 String timeStr = (minutes > 0) ? String.format("%dm %ds", minutes, seconds) : seconds + "s";
 
-                // Calcul du pourcentage (basé sur ton max de 20000)
+                // The external machine uses 20,000 as its full fuel value.
                 int percent = (int) Math.min(100, (fuelValue / 20000.0) * 100);
 
                 // Barre de progression visuelle

@@ -47,7 +47,7 @@ public class TooltipManager {
         AABB searchBox = mc.player.getBoundingBox().expandTowards(viewVec.scale(reach)).inflate(1.0D);
         EntityHitResult entityHit = ProjectileUtil.getEntityHitResult(
                 mc.player, eyePos, endPos, searchBox,
-                entity -> !entity.isSpectator() && entity.isPickable(), reach * reach
+                entity -> !entity.isSpectator() && (entity.isPickable() || entity instanceof ItemEntity), reach * reach
         );
 
         if (entityHit != null && entityHit.getEntity() != null) {
@@ -103,8 +103,7 @@ public class TooltipManager {
         // --- INITIALISATION ACCESSOR BLOC ---
         IBlockAccessor accessor = new IBlockAccessor(
                 mc.level, mc.player, targetPos, finalState, finalBE,
-                data, hitResult, new ItemStack[]{ItemStack.EMPTY},
-                (List<ItemStack>[]) new List[]{new ArrayList<>()}, new String[]{null}
+                data, hitResult
         );
 
         List<String> extraInfo = new ArrayList<>();
@@ -128,14 +127,11 @@ public class TooltipManager {
         List<String> extraInfo = new ArrayList<>();
         List<ItemStack> previewItems = new ArrayList<>();
 
-        // Initialisation de l'accessor avec les conteneurs requis par ton record
         IBlockAccessor accessor = new IBlockAccessor(
                 mc.level, mc.player, entity.blockPosition(), null, null,
-                null, null,
-                new ItemStack[]{ItemStack.EMPTY},            // iconContainer
-                (List<ItemStack>[]) new List[]{previewItems}, // inventoryContainer
-                new String[]{null}                           // titleContainer
+                null, null
         );
+        accessor.setPreviewItems(previewItems);
 
         // Parcours des providers d'entités
         boolean foundProvider = false;
@@ -232,9 +228,10 @@ public class TooltipManager {
 
         IBlockAccessor itemAccessor = new IBlockAccessor(
                 mc.level, mc.player, targetEntity.blockPosition(), null, null,
-                null, null, new ItemStack[]{targetStack},
-                (List<ItemStack>[]) new List[]{previewList}, new String[]{null}
+                null, null
         );
+        itemAccessor.setIcon(targetStack);
+        itemAccessor.setPreviewItems(previewList);
 
         TooltipOverlayRendererUtils.renderFinal(event, mc, info, itemAccessor, 0f);
     }

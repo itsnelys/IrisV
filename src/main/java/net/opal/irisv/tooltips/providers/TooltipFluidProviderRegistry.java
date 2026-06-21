@@ -31,7 +31,7 @@ public class TooltipFluidProviderRegistry {
     }
 
     /**
-     * La méthode principale appelée par ton système de rendu / Tooltip.
+     * Finds the first provider that can describe the targeted fluid storage.
      * @return Un IFluidStorage si du fluide est trouvé, sinon null.
      */
     public static IFluidStorage get(BlockState state, BlockEntity be, Level level, BlockPos pos) {

@@ -24,7 +24,7 @@ Le projet sert de base de developpement pour `irisv`, avec configuration JSON, p
 | NeoForge | `21.4.156` |
 | Java | `21` |
 | Package | `net.opal.irisv` |
-| Version Gradle | `mod_version=1.0.0` |
+| Version Gradle | `mod_version=0.0.1-alpha` |
 | Version affichee en jeu | `IrisV 0.0.1 - Alpha` |
 
 ### Commandes Gradle
@@ -80,10 +80,10 @@ config/irisv/options.json
 | `advancedTooltips` | `true` | Active les tooltips avances. |
 | `advancedLiquidStats` | `true` | Active les infos avancees de fluides. |
 | `enableIndicators` | `true` | Active les indicateurs HUD. |
-| `indicatorPosition` | `2` | Position des indicateurs, gauche/droite. |
+| `indicatorPosition` | `RIGHT` | Position des indicateurs, `LEFT` ou `RIGHT`. |
 | `enableEntityTooltip` | `true` | Active les tooltips d'entites. |
-| `themeIndex` | `0` | Theme UI selectionne. |
-| `tooltipPosition` | `0` | Position du tooltip. |
+| `theme` | `DARKNESS` | Theme UI selectionne. |
+| `tooltipPosition` | `TOP_CENTER` | Position du tooltip. |
 | `compactMode` | `false` | Mode compact sans espaces. |
 
 ### Providers inclus
@@ -148,7 +148,7 @@ The project is a development base for `irisv`, with JSON configuration, extensib
 | NeoForge | `21.4.156` |
 | Java | `21` |
 | Package | `net.opal.irisv` |
-| Gradle version | `mod_version=1.0.0` |
+| Gradle version | `mod_version=0.0.1-alpha` |
 | In-game displayed version | `IrisV 0.0.1 - Alpha` |
 
 ### Gradle Commands
@@ -204,10 +204,10 @@ config/irisv/options.json
 | `advancedTooltips` | `true` | Enables advanced tooltips. |
 | `advancedLiquidStats` | `true` | Enables advanced fluid information. |
 | `enableIndicators` | `true` | Enables HUD indicators. |
-| `indicatorPosition` | `2` | Indicator position, left/right. |
+| `indicatorPosition` | `RIGHT` | Indicator position, `LEFT` or `RIGHT`. |
 | `enableEntityTooltip` | `true` | Enables entity tooltips. |
-| `themeIndex` | `0` | Selected UI theme. |
-| `tooltipPosition` | `0` | Tooltip position. |
+| `theme` | `DARKNESS` | Selected UI theme. |
+| `tooltipPosition` | `TOP_CENTER` | Tooltip position. |
 | `compactMode` | `false` | Compact mode without spacing. |
 
 ### Included Providers

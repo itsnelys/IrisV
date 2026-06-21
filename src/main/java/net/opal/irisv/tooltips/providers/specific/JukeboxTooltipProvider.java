@@ -70,7 +70,6 @@ public class JukeboxTooltipProvider implements IBlockTooltipProvider {
                     info.add(rainbowColor + tooltipLines.get(1).getString());
                 }
 
-                // AJOUT : Affiche l'icône du disque dans la preview
                 accessor.setPreviewItems(List.of(recordStack));
             } else {
                 info.add("§8Chargement...");

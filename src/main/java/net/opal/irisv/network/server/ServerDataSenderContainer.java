@@ -2,6 +2,7 @@ package net.opal.irisv.network.server;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.server.level.ServerPlayer;
@@ -15,6 +16,7 @@ import net.minecraft.world.level.block.state.properties.ChestType;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.items.IItemHandler;
 import net.opal.irisv.network.ServerDataSender;
+import net.opal.irisv.mixin.FurnaceBlockEntityAccessor;
 
 import java.util.UUID;
 
@@ -43,64 +45,24 @@ public class ServerDataSenderContainer {
         int currentHash = calculateGlobalHash(player, masterPos, player.level().getBlockState(masterPos), targetBE, neighborBE);
 
         if (ServerDataSender.shouldUpdate(uuid, masterPos, currentHash)) {
-            // Préparation du Tag NBT de base
-            CompoundTag data = targetBE.saveWithFullMetadata(player.level().registryAccess());
-            cleanInventoryTags(data);
+            CompoundTag data = createSafeData(player, targetBE);
 
-            // --- AJOUT : DÉTECTION AUTO DES FLUIDES (SERVER-SIDE) ---
-            // On récupère la Capability fluide ici, sur le serveur, pour avoir les vraies valeurs.
             var fluidHandler = player.level().getCapability(Capabilities.FluidHandler.BLOCK, pos, state, targetBE, null);
             if (fluidHandler != null && fluidHandler.getTanks() > 0) {
-                // On envoie les données du premier tank (ou on boucle si besoin)
-                // Ces clés seront lues par ton GenericFluidProvider.java
-                data.putLong("RealAmount", fluidHandler.getFluidInTank(0).getAmount());
+                var fluidStack = fluidHandler.getFluidInTank(0);
+                data.putLong("RealAmount", fluidStack.getAmount());
                 data.putLong("RealCapacity", fluidHandler.getTankCapacity(0));
+                if (!fluidStack.isEmpty()) {
+                    data.putString("FluidName", BuiltInRegistries.FLUID.getKey(fluidStack.getFluid()).toString());
+                }
             }
 
-// --- AJOUT : LOGIQUE TYPE JADE POUR LES FOURS ---
             if (targetBE instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity furnace) {
-                int burnTime = 0;
-                int burnDuration = 0;
-                int cookTime = 0;
-                int cookTimeTotal = 0;
-
-                try {
-                    // Comme Jade, on va chercher le champ 'data' qui est de type ContainerData
-                    // On utilise getDeclaredField sur la classe parente (AbstractFurnaceBlockEntity)
-                    java.lang.reflect.Field dataField = net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity.class.getDeclaredField("data");
-                    dataField.setAccessible(true); // On force l'ouverture du cadenas "protected"
-
-                    net.minecraft.world.inventory.ContainerData furnaceData = (net.minecraft.world.inventory.ContainerData) dataField.get(furnace);
-
-                    if (furnaceData != null) {
-                        // Index standards Minecraft pour les fours :
-                        burnTime = furnaceData.get(0);      // Temps de fuel restant
-                        burnDuration = furnaceData.get(1);  // Durée totale du dernier combustible
-                        cookTime = furnaceData.get(2);      // Progression de la flèche
-                        cookTimeTotal = furnaceData.get(3); // Temps total requis pour l'item
-                    }
-                } catch (Exception e) {
-                    // Si le champ ne s'appelle pas "data" (mappings différents), on cherche par TYPE
-                    try {
-                        for (java.lang.reflect.Field field : net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity.class.getDeclaredFields()) {
-                            if (field.getType() == net.minecraft.world.inventory.ContainerData.class) {
-                                field.setAccessible(true);
-                                net.minecraft.world.inventory.ContainerData fd = (net.minecraft.world.inventory.ContainerData) field.get(furnace);
-                                burnTime = fd.get(0);
-                                burnDuration = fd.get(1);
-                                cookTime = fd.get(2);
-                                cookTimeTotal = fd.get(3);
-                                break;
-                            }
-                        }
-                    } catch (Exception ignored) {}
-                }
-
-                // On injecte les valeurs trouvées dans le NBT qui sera envoyé au client
-                data.putInt("BurnTime", burnTime);
-                data.putInt("BurnDuration", burnDuration);
-                data.putInt("CookTime", cookTime);
-                data.putInt("CookTimeTotal", cookTimeTotal);
+                FurnaceBlockEntityAccessor accessor = (FurnaceBlockEntityAccessor) furnace;
+                data.putInt("BurnTime", accessor.irisv$getLitTimeRemaining());
+                data.putInt("BurnDuration", accessor.irisv$getLitTotalTime());
+                data.putInt("CookTime", accessor.irisv$getCookingTimer());
+                data.putInt("CookTimeTotal", accessor.irisv$getCookingTotalTime());
             }
 
             // Fusion des inventaires (Simple ou Double coffre)
@@ -130,11 +92,9 @@ public class ServerDataSenderContainer {
         return nPos;
     }
 
-    private static void cleanInventoryTags(CompoundTag data) {
-        data.remove("Items");
-        data.remove("inventory");
-        data.remove("Inventory");
-        data.remove("storage");
+    private static CompoundTag createSafeData(ServerPlayer player, BlockEntity blockEntity) {
+        CompoundTag source = blockEntity.saveWithFullMetadata(player.level().registryAccess());
+        return ServerDataSanitizer.sanitize(source, player.hasPermissions(2));
     }
 
     private static void fillCombinedInventory(ServerPlayer player, BlockPos pos, BlockState state, BlockEntity target, BlockEntity neighbor, ListTag combined) {
@@ -165,7 +125,6 @@ public class ServerDataSenderContainer {
         addItemsToList(handler, list, player, 0);
     }
 
-    // Méthode avec support du tag "Slot" et "count" (Correction crash + bibliothèque)
     public static void addItemsToList(IItemHandler handler, ListTag list, ServerPlayer player, int slotOffset) {
         for (int i = 0; i < handler.getSlots(); i++) {
             ItemStack stack = handler.getStackInSlot(i);
@@ -260,9 +219,7 @@ public class ServerDataSenderContainer {
             }
         }
 
-        // --- MISE À JOUR : HASH GLOBAL DU NBT ---
-        // Cette ligne garantit que CookTime, BurnTime et tout autre tag
-        // provoquent une mise à jour réseau dès qu'ils changent d'une unité.
+        // Include machine progress and other changing block entity state.
         h += be.saveWithFullMetadata(player.level().registryAccess()).hashCode();
 
         return h;

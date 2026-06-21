@@ -3,6 +3,9 @@
   "package": "net.opal.irisv.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
+    "FurnaceBlockEntityAccessor"
+  ],
+  "client": [
     "DestroyAccessor"
   ],
   "injectors": {

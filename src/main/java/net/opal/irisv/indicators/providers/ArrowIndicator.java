@@ -10,6 +10,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.ProjectileWeaponItem;
 import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.item.enchantment.Enchantments;
 import net.opal.irisv.api.IIndicator;
 import net.opal.irisv.option.ConfigOptions;
@@ -68,7 +69,7 @@ public class ArrowIndicator implements IIndicator {
             Holder<Enchantment> infinityHolder = enchantmentLookup.getOrThrow(Enchantments.INFINITY);
 
             // Infinity ne marche QUE sur les flèches normales (Items.ARROW)
-            if (weapon.getEnchantments().getLevel(infinityHolder) > 0 && iconStack.is(Items.ARROW)) {
+            if (EnchantmentHelper.getEnchantmentsForCrafting(weapon).getLevel(infinityHolder) > 0 && iconStack.is(Items.ARROW)) {
                 canBeInfinite = true;
             }
         }

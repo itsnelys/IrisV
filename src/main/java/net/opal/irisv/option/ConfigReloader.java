@@ -1,6 +1,5 @@
 package net.opal.irisv.option;
 
-import com.google.gson.Gson;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.server.level.ServerLevel;
@@ -17,8 +16,6 @@ import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 public class ConfigReloader {
-    private static final Gson GSON = new Gson();
-
     private static final Map<String, Consumer<Path>> reloadHandlers = new HashMap<>();
 
     public static void register(RegisterCommandsEvent event) {
@@ -53,10 +50,14 @@ public class ConfigReloader {
                         .forEach(file -> {
                             String fileName = file.getFileName().toString();
 
-                            if ("options.json".equals(fileName)) return;
-
                             try {
-                                if (reloadHandlers.containsKey(fileName)) {
+                                if ("options.json".equals(fileName)) {
+                                    ConfigOptions.load();
+                                    if (source.getLevel() instanceof ServerLevel serverLevel) {
+                                        FunctionUtilsChat.sendActionMessage(serverLevel, "reloadfile.action.config.reload", fileName);
+                                    }
+                                    FunctionUtilsLogs.actionLog("Config", "Reloaded file " + fileName);
+                                } else if (reloadHandlers.containsKey(fileName)) {
                                     reloadHandlers.get(fileName).accept(file);
                                     if (source.getLevel() instanceof ServerLevel serverLevel) {
                                         FunctionUtilsChat.sendActionMessage(serverLevel, "reloadfile.action.config.reload", fileName);
@@ -73,7 +74,7 @@ public class ConfigReloader {
                                     FunctionUtilsChat.sendErrorMessage(serverLevel, "reloadfile.error.config.load", fileName, e.getMessage());
                                 }
                                 FunctionUtilsLogs.errorLog("Config", "Failed to load : " + fileName);
-                                e.printStackTrace();
+                                FunctionUtilsLogs.errorLog("Config", e.toString());
                             }
                         });
             }
@@ -83,7 +84,7 @@ public class ConfigReloader {
                 FunctionUtilsChat.sendErrorMessage(serverLevel, "reloadfile.error.config.reload", e.getMessage());
             }
             FunctionUtilsLogs.errorLog("Config", "Failed to reload configs : " + e.getMessage());
-            e.printStackTrace();
+            FunctionUtilsLogs.errorLog("Config", e.toString());
             return 0;
         }
     }

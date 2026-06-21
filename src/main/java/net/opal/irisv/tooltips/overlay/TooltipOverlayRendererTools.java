@@ -30,7 +30,7 @@ public class TooltipOverlayRendererTools {
             if (isShearsRequired) {
                 status = (held.getItem() instanceof ShearsItem) ? theme.status_ok() : theme.status_error();
             } else {
-                boolean canDropWithHeld = Minecraft.getInstance().player.hasCorrectToolForDrops(state);
+                boolean canDropWithHeld = held.isCorrectToolForDrops(state);
                 boolean holdingAnyTool = isTieredTool(held.getItem());
 
                 if (isCorrectType) {

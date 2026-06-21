@@ -5,7 +5,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.opal.irisv.api.IBlockTooltipProvider;
-import net.opal.irisv.api.IBlockAccessor; // Utilisation de ton nouvel accessor
+import net.opal.irisv.api.IBlockAccessor;
 import net.opal.irisv.option.ConfigOptions;
 
 import java.util.List;

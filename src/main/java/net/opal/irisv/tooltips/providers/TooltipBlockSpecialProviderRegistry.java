@@ -10,7 +10,6 @@ public class TooltipBlockSpecialProviderRegistry {
     private static final List<IBlockPreviewRenderer> PROVIDERS_SPECIAL = new ArrayList<>();
 
     static {
-        // C'est ici que tu enregistres tes nouveaux rendus customs
         PROVIDERS_SPECIAL.add(new FurnaceTooltipProvider());
         PROVIDERS_SPECIAL.add(new BrewingStandTooltipProvider());
         // PROVIDERS_SPECIAL.add(new BrewingStandPreviewRenderer());

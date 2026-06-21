@@ -3,6 +3,8 @@ package net.opal.irisv.network;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -19,7 +21,6 @@ public class ClientDataCache {
         }
     }
 
-    // --- AJOUTE CETTE MÉTHODE ---
     public static void remove(BlockPos pos) {
         if (pos != null) {
             CACHE.remove(pos);
@@ -30,7 +31,16 @@ public class ClientDataCache {
         return CACHE.getOrDefault(pos, new CompoundTag());
     }
 
+    public static void clear() {
+        CACHE.clear();
+    }
+
+    @SubscribeEvent
+    public static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
+        clear();
+    }
+
     public static void handleData(final BlockDataPayload payload, IPayloadContext context) {
-        update(payload.pos(), payload.tag());
+        context.enqueueWork(() -> update(payload.pos(), payload.tag()));
     }
 }

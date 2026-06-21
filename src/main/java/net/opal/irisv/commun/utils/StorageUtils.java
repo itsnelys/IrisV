@@ -11,7 +11,7 @@ public class StorageUtils {
 
     /**
      * Détermine la position "Maître".
-     * CORRECTION : On se base sur la structure des blocs, pas sur leur contenu.
+     * Uses the block structure so both halves of a container share one target.
      */
     public static BlockPos getActualTarget(Level level, BlockPos pos, BlockState state) {
         // 1. SOPHISTICATED STORAGE (Priorité)

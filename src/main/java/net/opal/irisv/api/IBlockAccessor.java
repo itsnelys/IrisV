@@ -13,68 +13,53 @@ import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Accesseur de données pour les tooltips de blocs.
- * Gère l'icône, le titre personnalisé et la liste d'items pour la preview.
- */
-public record IBlockAccessor(
-        Level level,
-        Player player,
-        BlockPos pos,
-        BlockState state,
-        @Nullable BlockEntity blockEntity,
-        CompoundTag serverData,
-        HitResult hit,
-        ItemStack[] iconContainer,          // Conteneur pour l'icône d'override
-        List<ItemStack>[] inventoryContainer, // Conteneur pour la liste des items (Preview)
-        String[] titleContainer             // Conteneur pour le titre d'override
-) {
+public final class IBlockAccessor {
+    private final Level level;
+    private final Player player;
+    private final BlockPos pos;
+    private final BlockState state;
+    private final BlockEntity blockEntity;
+    private final CompoundTag serverData;
+    private final HitResult hit;
+    private ItemStack icon = ItemStack.EMPTY;
+    private List<ItemStack> previewItems = new ArrayList<>();
+    private String titleOverride;
 
-    // --- GESTION DU TITRE ---
-
-    /**
-     * Remplace le nom du bloc par un titre personnalisé.
-     */
-    public void setTitleOverride(String title) {
-        if (titleContainer.length > 0) {
-            titleContainer[0] = title;
-        }
+    public IBlockAccessor(
+            Level level,
+            Player player,
+            BlockPos pos,
+            @Nullable BlockState state,
+            @Nullable BlockEntity blockEntity,
+            @Nullable CompoundTag serverData,
+            @Nullable HitResult hit
+    ) {
+        this.level = level;
+        this.player = player;
+        this.pos = pos;
+        this.state = state;
+        this.blockEntity = blockEntity;
+        this.serverData = serverData;
+        this.hit = hit;
     }
 
-    public @Nullable String getTitleOverride() {
-        return (titleContainer.length > 0) ? titleContainer[0] : null;
-    }
+    public Level level() { return level; }
+    public Player player() { return player; }
+    public BlockPos pos() { return pos; }
+    public @Nullable BlockState state() { return state; }
+    public @Nullable BlockEntity blockEntity() { return blockEntity; }
+    public @Nullable CompoundTag serverData() { return serverData; }
+    public @Nullable HitResult hit() { return hit; }
 
-    // --- GESTION DE L'ICÔNE ---
+    public void setTitleOverride(String title) { titleOverride = title; }
+    public @Nullable String getTitleOverride() { return titleOverride; }
 
-    /**
-     * Remplace l'icône du bloc affichée à gauche.
-     */
-    public void setIcon(ItemStack stack) {
-        if (iconContainer.length > 0) {
-            iconContainer[0] = stack;
-        }
-    }
+    public void setIcon(ItemStack stack) { icon = stack == null ? ItemStack.EMPTY : stack; }
+    public ItemStack getIcon() { return icon; }
 
-    public ItemStack getIcon() {
-        return (iconContainer.length > 0) ? iconContainer[0] : ItemStack.EMPTY;
-    }
-
-    // --- GESTION DE LA PREVIEW D'INVENTAIRE ---
-
-    /**
-     * Définit la liste des items à afficher dans la preview (mode liste ou grille).
-     */
     public void setPreviewItems(List<ItemStack> items) {
-        if (inventoryContainer.length > 0) {
-            inventoryContainer[0] = items;
-        }
+        previewItems = items == null ? new ArrayList<>() : items;
     }
 
-    public List<ItemStack> getPreviewItems() {
-        if (inventoryContainer.length > 0 && inventoryContainer[0] != null) {
-            return inventoryContainer[0];
-        }
-        return new ArrayList<>();
-    }
+    public List<ItemStack> getPreviewItems() { return previewItems; }
 }

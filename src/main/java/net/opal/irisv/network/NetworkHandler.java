@@ -12,7 +12,6 @@ public class NetworkHandler {
         // On crée le registrar pour le mod
         final PayloadRegistrar registrar = event.registrar(Irisv.MODID).versioned("1");
 
-        // CORRECTION ICI : On utilise .TYPE au lieu de .ID
         registrar.playToClient(
                 BlockDataPayload.TYPE,
                 BlockDataPayload.CODEC,

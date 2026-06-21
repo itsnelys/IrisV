@@ -86,7 +86,7 @@ public class TooltipOverlayRendererUtils {
             } else {
                 var player = Minecraft.getInstance().player;
                 if (player != null && !player.isCreative()) {
-                    boolean canDrop = player.hasCorrectToolForDrops(state);
+                    boolean canDrop = player.getMainHandItem().isCorrectToolForDrops(state);
                     boolean isTool = player.getMainHandItem().getItem() instanceof DiggerItem || player.getMainHandItem().getItem() instanceof ShearsItem;
 
                     if (!canDrop) barColor = theme.progress_bar_error();
