@@ -6,7 +6,6 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.ARGB;
 import net.minecraft.world.item.*;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.opal.irisv.api.IBlockAccessor;
@@ -112,8 +111,11 @@ public class TooltipOverlayRenderer {
 
                     for (int i = 0; i < fillWidth; i += 16) {
                         int w = Math.min(16, fillWidth - i);
-                        gui.blit(net.minecraft.client.renderer.RenderType::guiTextured, atlas, drawX + i, fluidY,
-                                sprite.getU0() * 1024, sprite.getV0() * 1024, w, barHeight, 1024, 1024, fluidColor);
+                        float alpha = ((fluidColor >>> 24) & 0xFF) / 255.0F;
+                        float red = ((fluidColor >>> 16) & 0xFF) / 255.0F;
+                        float green = ((fluidColor >>> 8) & 0xFF) / 255.0F;
+                        float blue = (fluidColor & 0xFF) / 255.0F;
+                        gui.blit(drawX + i, fluidY, 0, w, barHeight, sprite, red, green, blue, alpha);
                     }
                 }
 

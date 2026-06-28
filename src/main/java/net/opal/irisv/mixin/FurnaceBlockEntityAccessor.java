@@ -6,13 +6,13 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 
 @Mixin(AbstractFurnaceBlockEntity.class)
 public interface FurnaceBlockEntityAccessor {
-    @Accessor("litTimeRemaining")
+    @Accessor("litTime")
     int irisv$getLitTimeRemaining();
 
-    @Accessor("litTotalTime")
+    @Accessor("litDuration")
     int irisv$getLitTotalTime();
 
-    @Accessor("cookingTimer")
+    @Accessor("cookingProgress")
     int irisv$getCookingTimer();
 
     @Accessor("cookingTotalTime")

@@ -13,13 +13,13 @@ public class VehicleProvider implements IEntityTooltipProvider {
     @Override
     public boolean isApplicable(Entity entity) {
         // AbstractMinecart couvre : Chest, Hopper, TNT, Furnace, CommandBlock, Spawner
-        // AbstractBoat couvre : Boat et ChestBoat
-        return entity instanceof AbstractMinecart || entity instanceof AbstractBoat;
+        // Boat couvre : Boat et ChestBoat en 1.21.1
+        return entity instanceof AbstractMinecart || entity instanceof Boat;
     }
 
     @Override
     public void addTooltip(List<String> tooltip, Entity entity, IBlockAccessor accessor) {
-        if (entity instanceof AbstractBoat boat) {
+        if (entity instanceof Boat boat) {
             // Extraction du bois via le nom de l'entité (plus fiable que getVariant)
             String id = net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(boat.getType()).getPath();
 

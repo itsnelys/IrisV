@@ -2,7 +2,6 @@ package net.opal.irisv.tooltips.providers.special;
 
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.renderer.RenderType;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -74,7 +73,7 @@ public class FurnaceTooltipProvider implements IBlockPreviewRenderer {
             int arrowY = currentY + 1;
 
             // Fond de la flèche
-            gui.blit(RenderType::guiTextured, ARROW_EMPTY, arrowX, arrowY, 0.0F, 0.0F, ARROW_WIDTH, ARROW_HEIGHT, ARROW_WIDTH, ARROW_HEIGHT);
+            gui.blit(ARROW_EMPTY, arrowX, arrowY, 0.0F, 0.0F, ARROW_WIDTH, ARROW_HEIGHT, ARROW_WIDTH, ARROW_HEIGHT);
 
             float cookProgress = furnace.getCookProgress();
             if (cookProgress > 0) {
@@ -82,7 +81,7 @@ public class FurnaceTooltipProvider implements IBlockPreviewRenderer {
                 gui.pose().pushPose();
                 gui.pose().translate(0, 0, 0.1F);
                 // On applique le décalage Y+1 pour l'alignement visuel
-                gui.blit(RenderType::guiTextured, ARROW_FULL, arrowX, arrowY + 1, 0.0F, 0.0F, Math.min(scaledWidth, ARROW_WIDTH), ARROW_HEIGHT, ARROW_WIDTH, ARROW_HEIGHT);
+                gui.blit(ARROW_FULL, arrowX, arrowY + 1, 0.0F, 0.0F, Math.min(scaledWidth, ARROW_WIDTH), ARROW_HEIGHT, ARROW_WIDTH, ARROW_HEIGHT);
                 gui.pose().popPose();
             }
 

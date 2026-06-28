@@ -59,7 +59,7 @@ public class TooltipData {
             iconStack = accessor.getIcon();
 
             if (iconStack.isEmpty()) {
-                iconStack = block.getCloneItemStack(mc.level, pos, state, false, mc.player);
+                iconStack = block.getCloneItemStack(mc.level, pos, state);
             }
 
             // Fallback ultime

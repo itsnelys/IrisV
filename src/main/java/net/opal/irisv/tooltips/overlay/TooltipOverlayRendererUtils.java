@@ -3,7 +3,6 @@ package net.opal.irisv.tooltips.overlay;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.renderer.RenderType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -55,7 +54,7 @@ public class TooltipOverlayRendererUtils {
             int heartY = y + (i / 10) * 9;
 
             // 2. On dessine le fond (le container vide)
-            gui.blitSprite(RenderType::guiTextured, HEART_CONTAINER, heartX, heartY, 9, 9);
+            gui.blitSprite(HEART_CONTAINER, heartX, heartY, 9, 9);
 
             // --- CORRECTION DU BUG 10.75 ---
             // On compare la vie au "début" du slot actuel (i * 2)
@@ -64,11 +63,11 @@ public class TooltipOverlayRendererUtils {
 
             if (health >= threshold + 2f) {
                 // Cœur complet (ex: 12.0 HP pour le slot qui finit à 12.0)
-                gui.blitSprite(RenderType::guiTextured, HEART_FULL, heartX, heartY, 9, 9);
+                gui.blitSprite(HEART_FULL, heartX, heartY, 9, 9);
             } else if (health > threshold) {
                 // Demi-cœur : s'affiche dès qu'il y a un surplus de vie sur ce slot
                 // Si health = 10.75 et threshold = 10.0, alors 10.75 > 10.0 -> OK
-                gui.blitSprite(RenderType::guiTextured, HEART_HALF, heartX, heartY, 9, 9);
+                gui.blitSprite(HEART_HALF, heartX, heartY, 9, 9);
             }
         }
     }

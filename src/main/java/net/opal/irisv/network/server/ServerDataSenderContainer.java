@@ -131,7 +131,7 @@ public class ServerDataSenderContainer {
             if (!stack.isEmpty()) {
                 int realCount = stack.getCount();
 
-                // On force le count à 1 pour la validation MC 1.21.4 (Évite le crash)
+                // On force le count à 1 pour la validation MC 1.21.x (Évite le crash)
                 ItemStack safetyStack = stack.copy();
                 safetyStack.setCount(1);
 

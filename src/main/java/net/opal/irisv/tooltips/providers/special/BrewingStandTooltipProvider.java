@@ -2,7 +2,6 @@ package net.opal.irisv.tooltips.providers.special;
 
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.renderer.RenderType;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -71,7 +70,7 @@ public class BrewingStandTooltipProvider implements IBlockPreviewRenderer {
             int arrowX = startX + (spacing * 2) + 2;
             int arrowY = currentY;
 
-            gui.blit(RenderType::guiTextured, ARROW_EMPTY, arrowX, arrowY, 0.0F, 0.0F, ARROW_WIDTH, ARROW_HEIGHT, ARROW_WIDTH, ARROW_HEIGHT);
+            gui.blit(ARROW_EMPTY, arrowX, arrowY, 0.0F, 0.0F, ARROW_WIDTH, ARROW_HEIGHT, ARROW_WIDTH, ARROW_HEIGHT);
 
             int brewTime = data.getInt("BrewTime");
             if (brewTime > 0) {
@@ -80,7 +79,7 @@ public class BrewingStandTooltipProvider implements IBlockPreviewRenderer {
                 if (scaledWidth > 0) {
                     gui.pose().pushPose();
                     gui.pose().translate(0, 0, 0.1F);
-                    gui.blit(RenderType::guiTextured, ARROW_FULL, arrowX, arrowY + 1, 0.0F, 0.0F, scaledWidth, ARROW_HEIGHT, ARROW_WIDTH, ARROW_HEIGHT);
+                    gui.blit(ARROW_FULL, arrowX, arrowY + 1, 0.0F, 0.0F, scaledWidth, ARROW_HEIGHT, ARROW_WIDTH, ARROW_HEIGHT);
                     gui.pose().popPose();
                 }
             }

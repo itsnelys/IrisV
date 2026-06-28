@@ -61,9 +61,9 @@ public class GenericFluidProvider {
             FluidStack finalStack = FluidStack.EMPTY;
             if (!fluidId.isEmpty()) {
                 var fluidKey = ResourceKey.create(Registries.FLUID, ResourceLocation.parse(fluidId));
-                var holder = BuiltInRegistries.FLUID.get(fluidKey);
-                if (holder.isPresent()) {
-                    finalStack = new FluidStack(holder.get().value(), (int) Math.min(amount, Integer.MAX_VALUE));
+                var fluid = BuiltInRegistries.FLUID.get(fluidKey);
+                if (fluid != null) {
+                    finalStack = new FluidStack(fluid, (int) Math.min(amount, Integer.MAX_VALUE));
                 }
             }
             return new CapacityTooltipProvider(finalStack, amount, capacity);
