@@ -19,6 +19,7 @@ public class TooltipBlockProviderRegistry {
         // --- Enregistrement des modules Vanillas ---
         register(new CopperTooltipProvider());
         register(new BeehiveTooltipProvider());
+        register(new BeaconTooltipProvider());
         register(new SignTooltipProvider());
         register(new RedstoneTooltipProvider());
         register(new EnderFrameTooltipProvider());
@@ -37,6 +38,7 @@ public class TooltipBlockProviderRegistry {
         register(new CommandBlockTooltipProvider());
         register(new StructureBlockTooltipProvider());
         register(new PlayerHeadTooltipProvider());
+        register(new SpawnerTooltipProvider());
         register(new JigsawTooltipProvider());
         register(new ComposterTooltipProvider());
 

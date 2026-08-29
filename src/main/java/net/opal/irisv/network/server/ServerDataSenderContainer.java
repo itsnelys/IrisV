@@ -10,6 +10,7 @@ import net.minecraft.world.Container;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.ChestBlock;
+import net.minecraft.world.level.block.entity.CampfireBlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.ChestType;
@@ -118,7 +119,13 @@ public class ServerDataSenderContainer {
             }
         }
 
-        if (handlerTarget != null) addItemsToList(handlerTarget, combined, player);
+        if (handlerTarget != null) {
+            addItemsToList(handlerTarget, combined, player);
+        } else if (target instanceof CampfireBlockEntity campfire) {
+            addItemsToList(campfire.getItems(), combined, player, 0);
+        } else if (target instanceof Container container) {
+            addItemsToList(container, combined, player, 0);
+        }
     }
 
     public static void addItemsToList(IItemHandler handler, ListTag list, ServerPlayer player) {
@@ -130,20 +137,38 @@ public class ServerDataSenderContainer {
             ItemStack stack = handler.getStackInSlot(i);
             if (!stack.isEmpty()) {
                 int realCount = stack.getCount();
-
-                // On force le count à 1 pour la validation MC 1.21.x (Évite le crash)
-                ItemStack safetyStack = stack.copy();
-                safetyStack.setCount(1);
-
-                CompoundTag itemTag = (CompoundTag) safetyStack.save(player.level().registryAccess());
-
-                // On injecte le vrai nombre et le numéro de slot (Nécessaire pour Hit & Name)
-                itemTag.putInt("count", realCount);
-                itemTag.putInt("Slot", i + slotOffset);
-
-                list.add(itemTag);
+                addStackToList(stack, realCount, i + slotOffset, list, player);
             }
         }
+    }
+
+    public static void addItemsToList(java.util.List<ItemStack> items, ListTag list, ServerPlayer player, int slotOffset) {
+        for (int i = 0; i < items.size(); i++) {
+            ItemStack stack = items.get(i);
+            if (!stack.isEmpty()) {
+                addStackToList(stack, stack.getCount(), i + slotOffset, list, player);
+            }
+        }
+    }
+
+    public static void addItemsToList(Container container, ListTag list, ServerPlayer player, int slotOffset) {
+        for (int i = 0; i < container.getContainerSize(); i++) {
+            ItemStack stack = container.getItem(i);
+            if (!stack.isEmpty()) {
+                addStackToList(stack, stack.getCount(), i + slotOffset, list, player);
+            }
+        }
+    }
+
+    private static void addStackToList(ItemStack stack, int realCount, int slot, ListTag list, ServerPlayer player) {
+        ItemStack safetyStack = stack.copy();
+        safetyStack.setCount(1);
+
+        CompoundTag itemTag = (CompoundTag) safetyStack.save(player.level().registryAccess());
+        itemTag.putInt("count", realCount);
+        itemTag.putInt("Slot", slot);
+
+        list.add(itemTag);
     }
 
     public static void handleEnderChest(ServerPlayer player, UUID uuid, BlockPos pos) {

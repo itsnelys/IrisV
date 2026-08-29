@@ -71,7 +71,7 @@ public class TooltipOverlayRenderer {
         );
 
 // --- 6. RENDU DU FLUIDE DYNAMIQUE ---
-        if (config.advancedTooltips) {
+        if (config.advancedTooltips && config.enableFluidTooltips) {
             var fluidData = TooltipFluidProviderRegistry.get(accessor.state(), accessor.blockEntity(), accessor.level(), accessor.pos());
 
             if (fluidData != null && !fluidData.isEmpty()) {
@@ -200,6 +200,8 @@ public class TooltipOverlayRenderer {
 
             boolean isFurnace = accessor.state() != null && accessor.state().getBlock() instanceof net.minecraft.world.level.block.AbstractFurnaceBlock;
             boolean isBrewing = accessor.state() != null && accessor.state().getBlock() instanceof net.minecraft.world.level.block.BrewingStandBlock;
+            boolean isCampfire = accessor.state() != null && accessor.state().getBlock() instanceof net.minecraft.world.level.block.CampfireBlock;
+            boolean isCrafter = accessor.state() != null && accessor.state().getBlock() instanceof net.minecraft.world.level.block.CrafterBlock;
 
 // On récupère les données via l'accessor ou le cache pour la condition
             int cookTime = data.getInt("CookTime"); // Utilise le nom synchronisé
@@ -220,6 +222,19 @@ public class TooltipOverlayRenderer {
                     previewMaxWidth = 120;
                     // L'alambic a aussi une barre de fuel (depuis la 1.9), on adapte aussi
                     previewHeight = 28;
+                }
+            }
+            else if (isCampfire && !previewItems.isEmpty()) {
+                if (ConfigOptions.getInstance().advancedTooltips) {
+                    long visibleItems = previewItems.stream().filter(stack -> !stack.isEmpty()).count();
+                    previewMaxWidth = Math.max(16, (int) visibleItems * 22 - 6);
+                    previewHeight = 24;
+                }
+            }
+            else if (isCrafter && !previewItems.isEmpty()) {
+                if (ConfigOptions.getInstance().advancedTooltips) {
+                    previewMaxWidth = 54;
+                    previewHeight = 58;
                 }
             }
 
@@ -253,7 +268,7 @@ public class TooltipOverlayRenderer {
             int fluidMaxWidth = 0;
             var fluidData = TooltipFluidProviderRegistry.get(accessor.state(), accessor.blockEntity(), accessor.level(), accessor.pos());
 
-            if (config.advancedTooltips && fluidData != null && !fluidData.isEmpty()) {
+            if (config.advancedTooltips && config.enableFluidTooltips && fluidData != null && !fluidData.isEmpty()) {
                 // Hauteur de base pour la barre de fluide
                 fluidHeight = 20;
 

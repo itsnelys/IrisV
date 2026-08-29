@@ -7,7 +7,7 @@
 ## Français
 
 ### Présentation
-irisv1.21.1 est un devkit Minecraft 1.21.1 base sur NeoForge 21.1.222. Il fournit une base de mod avec tooltips, HUD, menus, providers et configuration JSON. Le depot sert au developpement d'experimentations et d'outils Minecraft personnels.
+irisv1.21.1 est un devkit Minecraft 1.21.1 base sur NeoForge 21.1.248. Il fournit une base de mod avec tooltips, HUD, menus, providers et configuration JSON. Le depot sert au developpement d'experimentations et d'outils Minecraft personnels.
 
 ### Fonctionnalités
 - Base NeoForge pour Minecraft 1.21.1.
@@ -52,7 +52,7 @@ Ce projet est proprietaire. Copyright © 2026 itsnelys. Tous droits reserves. Au
 ## English
 
 ### Overview
-irisv1.21.1 is a Minecraft 1.21.1 devkit based on NeoForge 21.1.222. It provides a mod base with tooltips, HUD indicators, menus, providers and JSON configuration. The repository supports personal Minecraft experiments and tools.
+irisv1.21.1 is a Minecraft 1.21.1 devkit based on NeoForge 21.1.248. It provides a mod base with tooltips, HUD indicators, menus, providers and JSON configuration. The repository supports personal Minecraft experiments and tools.
 
 ### Features
 - NeoForge base for Minecraft 1.21.1.

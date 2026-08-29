@@ -16,6 +16,16 @@ final class ServerDataSanitizer {
         copy(source, data, "Book");
         copy(source, data, "Fuel");
         copy(source, data, "BrewTime");
+        copy(source, data, "CookingTimes");
+        copy(source, data, "CookingTotalTimes");
+        copy(source, data, "Levels");
+        copy(source, data, "primary_effect");
+        copy(source, data, "secondary_effect");
+        copy(source, data, "Delay");
+        copy(source, data, "MinSpawnDelay");
+        copy(source, data, "MaxSpawnDelay");
+        copy(source, data, "SpawnCount");
+        copy(source, data, "SpawnData");
         copy(source, data, "melting_support_current_fuel");
 
         if (source.contains("Bees", Tag.TAG_LIST)) {

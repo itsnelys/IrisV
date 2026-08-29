@@ -2,6 +2,7 @@ package net.opal.irisv.option;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -11,6 +12,8 @@ import net.opal.irisv.commun.utils.FunctionUtilsLogs;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 public class ConfigOptions {
@@ -21,12 +24,23 @@ public class ConfigOptions {
     public boolean enableBlockTooltipOverlay = false;
     public boolean advancedTooltips = true;
     public boolean advancedLiquidStats = true;
+    public boolean enableBlockProviderTooltips = true;
+    public boolean enableDropTooltip = true;
+    public boolean enableFluidTooltips = true;
+    public boolean enableInventoryTooltips = true;
+    public boolean enableRecipeOverlay = true;
     public boolean enableIndicators = true;
+    public boolean enableToolDurabilityIndicator = true;
+    public boolean showDurabilityDetails = true;
     public IndicatorPosition indicatorPosition = IndicatorPosition.RIGHT;
     public boolean enableEntityTooltip = true;
     public Theme theme = Theme.DARKNESS;
     public TooltipPosition tooltipPosition = TooltipPosition.TOP_CENTER;
     public boolean compactMode = false;
+    public String recipeCategory = "ALL";
+    public boolean recipeHighlightSearchMode = false;
+    public int recipePage = 0;
+    public List<String> recipeFavorites = new ArrayList<>();
 
     private static final Path CONFIG_PATH = FMLPaths.CONFIGDIR.get()
             .resolve("irisv")
@@ -64,9 +78,20 @@ public class ConfigOptions {
         options.enableBlockTooltipOverlay = readBoolean(root, "enableBlockTooltipOverlay", options.enableBlockTooltipOverlay);
         options.advancedTooltips = readBoolean(root, "advancedTooltips", options.advancedTooltips);
         options.advancedLiquidStats = readBoolean(root, "advancedLiquidStats", options.advancedLiquidStats);
+        options.enableBlockProviderTooltips = readBoolean(root, "enableBlockProviderTooltips", options.enableBlockProviderTooltips);
+        options.enableDropTooltip = readBoolean(root, "enableDropTooltip", options.enableDropTooltip);
+        options.enableFluidTooltips = readBoolean(root, "enableFluidTooltips", options.enableFluidTooltips);
+        options.enableInventoryTooltips = readBoolean(root, "enableInventoryTooltips", options.enableInventoryTooltips);
+        options.enableRecipeOverlay = readBoolean(root, "enableRecipeOverlay", options.enableRecipeOverlay);
         options.enableIndicators = readBoolean(root, "enableIndicators", options.enableIndicators);
+        options.enableToolDurabilityIndicator = readBoolean(root, "enableToolDurabilityIndicator", options.enableToolDurabilityIndicator);
+        options.showDurabilityDetails = readBoolean(root, "showDurabilityDetails", options.showDurabilityDetails);
         options.enableEntityTooltip = readBoolean(root, "enableEntityTooltip", options.enableEntityTooltip);
         options.compactMode = readBoolean(root, "compactMode", options.compactMode);
+        options.recipeCategory = readString(root, "recipeCategory", options.recipeCategory);
+        options.recipeHighlightSearchMode = readBoolean(root, "recipeHighlightSearchMode", options.recipeHighlightSearchMode);
+        options.recipePage = readInt(root, "recipePage", options.recipePage);
+        options.recipeFavorites = readStringList(root, "recipeFavorites");
         options.indicatorPosition = readEnum(root, "indicatorPosition", IndicatorPosition.class, IndicatorPosition.RIGHT);
         options.tooltipPosition = readEnum(root, "tooltipPosition", TooltipPosition.class, TooltipPosition.TOP_CENTER);
         options.theme = readEnum(root, root.has("theme") ? "theme" : "themeIndex", Theme.class, Theme.DARKNESS);
@@ -79,12 +104,27 @@ public class ConfigOptions {
         root.addProperty("enableBlockTooltipOverlay", enableBlockTooltipOverlay);
         root.addProperty("advancedTooltips", advancedTooltips);
         root.addProperty("advancedLiquidStats", advancedLiquidStats);
+        root.addProperty("enableBlockProviderTooltips", enableBlockProviderTooltips);
+        root.addProperty("enableDropTooltip", enableDropTooltip);
+        root.addProperty("enableFluidTooltips", enableFluidTooltips);
+        root.addProperty("enableInventoryTooltips", enableInventoryTooltips);
+        root.addProperty("enableRecipeOverlay", enableRecipeOverlay);
         root.addProperty("enableIndicators", enableIndicators);
+        root.addProperty("enableToolDurabilityIndicator", enableToolDurabilityIndicator);
+        root.addProperty("showDurabilityDetails", showDurabilityDetails);
         root.addProperty("indicatorPosition", indicatorPosition.name());
         root.addProperty("enableEntityTooltip", enableEntityTooltip);
         root.addProperty("theme", theme.name());
         root.addProperty("tooltipPosition", tooltipPosition.name());
         root.addProperty("compactMode", compactMode);
+        root.addProperty("recipeCategory", recipeCategory);
+        root.addProperty("recipeHighlightSearchMode", recipeHighlightSearchMode);
+        root.addProperty("recipePage", recipePage);
+        JsonArray favoriteArray = new JsonArray();
+        for (String favorite : recipeFavorites) {
+            favoriteArray.add(favorite);
+        }
+        root.add("recipeFavorites", favoriteArray);
         return GSON.toJson(root);
     }
 
@@ -101,6 +141,28 @@ public class ConfigOptions {
     private static boolean readBoolean(JsonObject root, String key, boolean fallback) {
         JsonElement value = root.get(key);
         return value != null && value.isJsonPrimitive() ? value.getAsBoolean() : fallback;
+    }
+
+    private static int readInt(JsonObject root, String key, int fallback) {
+        JsonElement value = root.get(key);
+        return value != null && value.isJsonPrimitive() && value.getAsJsonPrimitive().isNumber() ? value.getAsInt() : fallback;
+    }
+
+    private static String readString(JsonObject root, String key, String fallback) {
+        JsonElement value = root.get(key);
+        return value != null && value.isJsonPrimitive() ? value.getAsString() : fallback;
+    }
+
+    private static List<String> readStringList(JsonObject root, String key) {
+        List<String> values = new ArrayList<>();
+        JsonElement value = root.get(key);
+        if (value == null || !value.isJsonArray()) return values;
+        for (JsonElement element : value.getAsJsonArray()) {
+            if (element.isJsonPrimitive()) {
+                values.add(element.getAsString());
+            }
+        }
+        return values;
     }
 
     private static <E extends Enum<E> & LegacyValue> E readEnum(JsonObject root, String key, Class<E> type, E fallback) {

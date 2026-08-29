@@ -6,6 +6,8 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.world.Container;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.CampfireBlock;
+import net.minecraft.world.level.block.CrafterBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.capabilities.Capabilities;
@@ -26,7 +28,8 @@ public class InventoryTooltipProvider implements IBlockTooltipProvider {
 
 
         // Logique standard pour le reste des inventaires
-        return be instanceof Container ||
+        return state != null && (state.getBlock() instanceof CampfireBlock || state.getBlock() instanceof CrafterBlock) ||
+                be instanceof Container ||
                 (be != null && be.getLevel() != null &&
                         be.getLevel().getCapability(Capabilities.ItemHandler.BLOCK, be.getBlockPos(), state, be, null) != null);
     }
@@ -44,6 +47,10 @@ public class InventoryTooltipProvider implements IBlockTooltipProvider {
 
             if (data != null && !data.isEmpty()) {
                 if (data.contains("Items", Tag.TAG_LIST)) {
+                    if (usesExactSlotPreview(accessor.state())) {
+                        accessor.setPreviewItems(readSlots(data.getList("Items", Tag.TAG_COMPOUND), accessor, expectedSlotCount(accessor.state())));
+                        return;
+                    }
                     mergeList(data.getList("Items", Tag.TAG_COMPOUND), combinedItems, accessor);
                 } else {
                     findAndMerge(data, combinedItems, accessor);
@@ -114,6 +121,37 @@ public class InventoryTooltipProvider implements IBlockTooltipProvider {
                 }
             }
         }
+    }
+
+    private List<ItemStack> readSlots(ListTag tagList, IBlockAccessor accessor, int slotCount) {
+        List<ItemStack> slots = new ArrayList<>();
+        for (int i = 0; i < slotCount; i++) slots.add(ItemStack.EMPTY);
+        boolean hasItem = false;
+
+        for (int i = 0; i < tagList.size(); i++) {
+            CompoundTag itemTag = tagList.getCompound(i);
+            int slot = itemTag.getInt("Slot");
+            if (slot < 0 || slot >= slotCount || !(itemTag.contains("id") || itemTag.contains("item"))) continue;
+
+            ItemStack stack = ItemStack.parseOptional(accessor.level().registryAccess(), itemTag);
+            if (!stack.isEmpty()) {
+                if (itemTag.contains("count")) stack.setCount(itemTag.getInt("count"));
+                slots.set(slot, stack);
+                hasItem = true;
+            }
+        }
+
+        return hasItem ? slots : List.of();
+    }
+
+    private boolean usesExactSlotPreview(BlockState state) {
+        return state != null && (state.getBlock() instanceof CampfireBlock || state.getBlock() instanceof CrafterBlock);
+    }
+
+    private int expectedSlotCount(BlockState state) {
+        if (state != null && state.getBlock() instanceof CampfireBlock) return 4;
+        if (state != null && state.getBlock() instanceof CrafterBlock) return 9;
+        return 0;
     }
 
     private void mergeStack(Map<String, ItemStack> combinedItems, ItemStack stack) {

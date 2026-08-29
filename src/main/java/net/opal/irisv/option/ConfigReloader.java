@@ -22,6 +22,11 @@ public class ConfigReloader {
         event.getDispatcher().register(Commands.literal("irisvreload")
                 .requires(source -> source.hasPermission(2))
                 .executes(context -> reloadAllConfigs(context.getSource())));
+
+        event.getDispatcher().register(Commands.literal("irisv")
+                .then(Commands.literal("reload")
+                        .requires(source -> source.hasPermission(2))
+                        .executes(context -> reloadAllConfigs(context.getSource()))));
     }
 
     public static void registerReloadHandler(String fileName, Consumer<Path> handler) {
@@ -78,8 +83,10 @@ public class ConfigReloader {
                             }
                         });
             }
+            source.sendSuccess(() -> net.minecraft.network.chat.Component.translatable("reloadfile.action.config.done"), false);
             return 1;
         } catch (Exception e) {
+            source.sendFailure(net.minecraft.network.chat.Component.translatable("reloadfile.error.config.reload", e.getMessage()));
             if (source.getLevel() instanceof ServerLevel serverLevel) {
                 FunctionUtilsChat.sendErrorMessage(serverLevel, "reloadfile.error.config.reload", e.getMessage());
             }

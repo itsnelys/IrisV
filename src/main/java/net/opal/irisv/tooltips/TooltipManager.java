@@ -24,6 +24,8 @@ import net.opal.irisv.option.ConfigOptions;
 import net.opal.irisv.tooltips.overlay.TooltipOverlayRendererUtils;
 import net.opal.irisv.tooltips.providers.TooltipEntityProviderRegistry;
 import net.opal.irisv.tooltips.providers.TooltipBlockProviderRegistry;
+import net.opal.irisv.tooltips.providers.fluid.FluidTooltipProvider;
+import net.opal.irisv.tooltips.providers.generic.InventoryTooltipProvider;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -54,14 +56,14 @@ public class TooltipManager {
             Entity target = entityHit.getEntity();
 
             // CAS A : C'est un item au sol (Logique groupée existante)
-            if (target instanceof ItemEntity itemEntity) {
+            if (target instanceof ItemEntity itemEntity && ConfigOptions.getInstance().enableDropTooltip) {
                 handleItemEntity(event, mc, itemEntity);
                 TooltipOverlayRendererUtils.updateProgress(null, 0, null);
                 return;
             }
 
             // CAS B : C'est une entité spéciale (ArmorStand, Frame, EndCrystal, etc.)
-            if (handleSpecialEntity(event, mc, target)) {
+            if (ConfigOptions.getInstance().enableEntityTooltip && handleSpecialEntity(event, mc, target)) {
                 TooltipOverlayRendererUtils.updateProgress(null, 0, null);
                 return;
             }
@@ -107,7 +109,9 @@ public class TooltipManager {
         );
 
         List<String> extraInfo = new ArrayList<>();
+        ConfigOptions config = ConfigOptions.getInstance();
         for (IBlockTooltipProvider provider : TooltipBlockProviderRegistry.getProviders()) {
+            if (!shouldRunBlockProvider(provider, config)) continue;
             if (provider.isApplicable(finalState, finalBE)) {
                 provider.addTooltip(extraInfo, accessor);
             }
@@ -118,6 +122,12 @@ public class TooltipManager {
         if (info.icon().isEmpty() && accessor.getPreviewItems().isEmpty() && extraInfo.isEmpty()) return;
 
         TooltipOverlayRendererUtils.renderFinal(event, mc, info, accessor, TooltipOverlayRendererUtils.visualProgress);
+    }
+
+    private static boolean shouldRunBlockProvider(IBlockTooltipProvider provider, ConfigOptions config) {
+        if (provider instanceof InventoryTooltipProvider) return config.enableInventoryTooltips;
+        if (provider instanceof FluidTooltipProvider) return config.enableFluidTooltips;
+        return config.enableBlockProviderTooltips;
     }
 
     /**

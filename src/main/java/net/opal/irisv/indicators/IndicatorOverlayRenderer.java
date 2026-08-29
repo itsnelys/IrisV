@@ -5,6 +5,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.opal.irisv.api.IIndicator;
 import net.opal.irisv.indicators.providers.ArmorIndicator;
 import net.opal.irisv.indicators.providers.ArrowIndicator;
+import net.opal.irisv.indicators.providers.ToolDurabilityIndicator;
 import net.opal.irisv.option.ConfigOptions;
 
 import java.util.ArrayList;
@@ -16,6 +17,7 @@ public class IndicatorOverlayRenderer {
     static {
         INDICATORS.add(new ArmorIndicator());
         INDICATORS.add(new ArrowIndicator());
+        INDICATORS.add(new ToolDurabilityIndicator());
     }
 
     // Remplace 'float partialTick' par 'DeltaTracker deltaTracker'
@@ -23,7 +25,7 @@ public class IndicatorOverlayRenderer {
         Minecraft mc = Minecraft.getInstance();
         ConfigOptions config = ConfigOptions.getInstance();
 
-        if (mc.player == null || mc.options.hideGui || !config.enableIndicators) return;
+        if (mc.player == null || mc.screen != null || mc.options.hideGui || !config.enableIndicators) return;
 
         // Si tu as besoin du partialTick (le float), tu l'extrais comme ça :
         float partialTick = deltaTracker.getGameTimeDeltaPartialTick(true);

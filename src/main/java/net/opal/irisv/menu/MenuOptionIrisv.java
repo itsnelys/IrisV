@@ -1,6 +1,7 @@
 package net.opal.irisv.menu;
 
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
@@ -9,9 +10,21 @@ import net.minecraft.util.Mth;
 import net.opal.irisv.option.ConfigOptions;
 import net.opal.irisv.theme.UiTheme;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class MenuOptionIrisv extends Screen {
+    private static final int BUTTON_HEIGHT = 20;
+    private static final int BASE_WIDTH = 200;
+    private static final int BUTTON_GAP = 4;
+    private static final int ROW_GAP = 5;
+    private static final int SECTION_GAP = 12;
+    private static final int CONTENT_TOP = 50;
+    private static final int CONTENT_BOTTOM_PADDING = 52;
 
     private final Screen parent;
+    private final List<PositionedWidget> contentWidgets = new ArrayList<>();
+    private int scrollOffset;
 
     public MenuOptionIrisv(Screen parent) {
         super(Component.translatable("menu.irisv.options"));
@@ -20,71 +33,77 @@ public class MenuOptionIrisv extends Screen {
 
     @Override
     protected void init() {
+        contentWidgets.clear();
         ConfigOptions config = ConfigOptions.getInstance();
-        int centerX = this.width / 2;
-        int bWidth = 200;
-        int bHeight = 20;
-        int halfW = (bWidth - 4) / 2;
+        Layout layout = createLayout();
+        int halfW = (layout.width - BUTTON_GAP) / 2;
 
-        this.addRenderableWidget(Button.builder(getDebugButtonText(config.enableDebugChat), b -> {
+        addContentWidget(Button.builder(getDebugButtonText(config.enableDebugChat), b -> {
             config.enableDebugChat = !config.enableDebugChat;
             b.setMessage(getDebugButtonText(config.enableDebugChat));
             config.save();
-        }).pos(centerX - 100, 65).size(halfW, bHeight).build());
+        }).pos(layout.left, layout.generalButtonY).size(halfW, BUTTON_HEIGHT).build(), layout.left, layout.generalButtonY, halfW);
 
-        this.addRenderableWidget(Button.builder(getThemeButtonText(config), b -> {
+        addContentWidget(Button.builder(getThemeButtonText(config), b -> {
             config.theme = config.theme.next();
             b.setMessage(getThemeButtonText(config));
             config.save();
-        }).pos(centerX + 2, 65).size(halfW, bHeight).build());
+        }).pos(layout.left + halfW + BUTTON_GAP, layout.generalButtonY).size(halfW, BUTTON_HEIGHT).build(), layout.left + halfW + BUTTON_GAP, layout.generalButtonY, halfW);
 
-        this.addRenderableWidget(Button.builder(getOverlayButtonText(config.enableBlockTooltipOverlay), b -> {
+        addContentWidget(Button.builder(Component.translatable("menu.irisv.providers"), b -> {
+            if (this.minecraft != null) this.minecraft.setScreen(new ProviderOptionsMenu(this));
+        }).pos(layout.left, layout.generalProviderButtonY).size(layout.width, BUTTON_HEIGHT).build(), layout.left, layout.generalProviderButtonY, layout.width);
+
+        addContentWidget(Button.builder(getOverlayButtonText(config.enableBlockTooltipOverlay), b -> {
             config.enableBlockTooltipOverlay = !config.enableBlockTooltipOverlay;
             b.setMessage(getOverlayButtonText(config.enableBlockTooltipOverlay));
             config.save();
-        }).pos(centerX - 100, 115).size(halfW, bHeight).build());
+        }).pos(layout.left, layout.tooltipsButtonY).size(halfW, BUTTON_HEIGHT).build(), layout.left, layout.tooltipsButtonY, halfW);
 
-        this.addRenderableWidget(new PositionSlider(centerX + 2, 115, halfW, bHeight, config));
+        addContentWidget(new PositionSlider(layout.left + halfW + BUTTON_GAP, layout.tooltipsButtonY, halfW, BUTTON_HEIGHT, config), layout.left + halfW + BUTTON_GAP, layout.tooltipsButtonY, halfW);
 
-        this.addRenderableWidget(Button.builder(getAdvancedButtonText(config.advancedTooltips), b -> {
+        addContentWidget(Button.builder(getAdvancedButtonText(config.advancedTooltips), b -> {
             config.advancedTooltips = !config.advancedTooltips;
             b.setMessage(getAdvancedButtonText(config.advancedTooltips));
             config.save();
-        }).pos(centerX - 100, 140).size(halfW, bHeight).build());
+        }).pos(layout.left, layout.tooltipsButtonY + layout.rowStep).size(halfW, BUTTON_HEIGHT).build(), layout.left, layout.tooltipsButtonY + layout.rowStep, halfW);
 
-        this.addRenderableWidget(Button.builder(getLiquidAdvancedButtonText(config.advancedLiquidStats), b -> {
+        addContentWidget(Button.builder(getLiquidAdvancedButtonText(config.advancedLiquidStats), b -> {
             config.advancedLiquidStats = !config.advancedLiquidStats;
             b.setMessage(getLiquidAdvancedButtonText(config.advancedLiquidStats));
             config.save();
-        }).pos(centerX + 2, 140).size(halfW, bHeight).build());
+        }).pos(layout.left + halfW + BUTTON_GAP, layout.tooltipsButtonY + layout.rowStep).size(halfW, BUTTON_HEIGHT).build(), layout.left + halfW + BUTTON_GAP, layout.tooltipsButtonY + layout.rowStep, halfW);
 
-        this.addRenderableWidget(Button.builder(getEntityButtonText(config.enableEntityTooltip), b -> {
+        addContentWidget(Button.builder(getEntityButtonText(config.enableEntityTooltip), b -> {
             config.enableEntityTooltip = !config.enableEntityTooltip;
             b.setMessage(getEntityButtonText(config.enableEntityTooltip));
             config.save();
-        }).pos(centerX - 100, 165).size(bWidth, bHeight).build());
+        }).pos(layout.left, layout.tooltipsButtonY + layout.rowStep * 2).size(halfW, BUTTON_HEIGHT).build(), layout.left, layout.tooltipsButtonY + layout.rowStep * 2, halfW);
 
-        this.addRenderableWidget(Button.builder(getCompactButtonText(config.compactMode), b -> {
+        addContentWidget(Button.builder(getCompactButtonText(config.compactMode), b -> {
             config.compactMode = !config.compactMode;
             b.setMessage(getCompactButtonText(config.compactMode));
             config.save();
-        }).pos(centerX - 100, 190).size(bWidth, bHeight).build());
+        }).pos(layout.left + halfW + BUTTON_GAP, layout.tooltipsButtonY + layout.rowStep * 2).size(halfW, BUTTON_HEIGHT).build(), layout.left + halfW + BUTTON_GAP, layout.tooltipsButtonY + layout.rowStep * 2, halfW);
 
-        this.addRenderableWidget(Button.builder(getIndicatorGlobalButtonText(config.enableIndicators), b -> {
+        addContentWidget(Button.builder(getIndicatorGlobalButtonText(config.enableIndicators), b -> {
             config.enableIndicators = !config.enableIndicators;
             b.setMessage(getIndicatorGlobalButtonText(config.enableIndicators));
             config.save();
-        }).pos(centerX - 100, 235).size(halfW, bHeight).build());
+        }).pos(layout.left, layout.indicatorsButtonY).size(halfW, BUTTON_HEIGHT).build(), layout.left, layout.indicatorsButtonY, halfW);
 
-        this.addRenderableWidget(Button.builder(getIndicatorSideButtonText(config.indicatorPosition), b -> {
+        addContentWidget(Button.builder(getIndicatorSideButtonText(config.indicatorPosition), b -> {
             config.indicatorPosition = config.indicatorPosition.next();
             b.setMessage(getIndicatorSideButtonText(config.indicatorPosition));
             config.save();
-        }).pos(centerX + 2, 235).size(halfW, bHeight).build());
+        }).pos(layout.left + halfW + BUTTON_GAP, layout.indicatorsButtonY).size(halfW, BUTTON_HEIGHT).build(), layout.left + halfW + BUTTON_GAP, layout.indicatorsButtonY, halfW);
 
         this.addRenderableWidget(Button.builder(Component.translatable("menu.irisv.return"), b -> {
             if (this.minecraft != null) this.minecraft.setScreen(parent);
-        }).pos(centerX - 100, this.height - 30).size(bWidth, bHeight).build());
+        }).pos(layout.left, this.height - 30).size(layout.width, BUTTON_HEIGHT).build());
+
+        clampScroll();
+        updateContentPositions();
     }
 
     @Override
@@ -100,27 +119,40 @@ public class MenuOptionIrisv extends Screen {
 
         renderFooter(guiGraphics, theme);
         renderSectionsLayout(guiGraphics, theme);
+        renderScrollbar(guiGraphics, theme);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        int previous = scrollOffset;
+        scrollOffset = Mth.clamp(scrollOffset - (int) (scrollY * (BUTTON_HEIGHT + ROW_GAP)), 0, maxScroll());
+        if (previous != scrollOffset) {
+            updateContentPositions();
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
     }
 
     private void renderSectionsLayout(GuiGraphics guiGraphics, UiTheme theme) {
-        int centerX = this.width / 2;
+        Layout layout = createLayout();
 
-        guiGraphics.drawString(this.font, section("menu.irisv.section.general"), centerX - 100, 50, 0xFFFFFF, true);
+        drawSection(guiGraphics, theme, "menu.irisv.section.general", layout.left, layout.generalTitleY - scrollOffset, layout.width);
+        drawSection(guiGraphics, theme, "menu.irisv.section.tooltips", layout.left, layout.tooltipsTitleY - scrollOffset, layout.width);
+        drawSection(guiGraphics, theme, "menu.irisv.section.indicators", layout.left, layout.indicatorsTitleY - scrollOffset, layout.width);
+    }
 
-        int sep1Y = 98;
-        guiGraphics.fill(centerX - 100, sep1Y, centerX + 100, sep1Y + 1, theme.gui_separatorLine());
-        guiGraphics.drawString(this.font, section("menu.irisv.section.tooltips"), centerX - 100, 105, 0xFFFFFF, true);
-
-        int sep2Y = 218;
-        guiGraphics.fill(centerX - 100, sep2Y, centerX + 100, sep2Y + 1, theme.gui_separatorLine());
-        guiGraphics.drawString(this.font, section("menu.irisv.section.indicators"), centerX - 100, 225, 0xFFFFFF, true);
+    private void drawSection(GuiGraphics guiGraphics, UiTheme theme, String key, int x, int y, int width) {
+        if (y + 14 < CONTENT_TOP || y > listBottom()) return;
+        guiGraphics.drawString(this.font, section(key), x, y, 0xFFFFFF, true);
+        int separatorY = y + 13;
+        guiGraphics.fill(x, separatorY, x + width, separatorY + 1, theme.gui_separatorLine());
     }
 
     private void renderFooter(GuiGraphics g, UiTheme theme) {
         int footerY = this.height - 40;
-        int centerX = this.width / 2;
-        int holeLeft = centerX - 100;
-        int holeRight = centerX + 100;
+        Layout layout = createLayout();
+        int holeLeft = layout.left;
+        int holeRight = layout.left + layout.width;
 
         g.fill(0, footerY, holeLeft, this.height, theme.gui_barColor());
         g.fill(0, footerY, holeLeft, footerY + 1, theme.gui_lineColor());
@@ -182,6 +214,26 @@ public class MenuOptionIrisv extends Screen {
         return Component.literal("§8> §7").append(Component.translatable(key));
     }
 
+    private Layout createLayout() {
+        int width = Math.min(BASE_WIDTH, Math.max(120, this.width - 36));
+        int left = (this.width - width) / 2;
+        int availableHeight = Math.max(1, this.height - CONTENT_TOP - CONTENT_BOTTOM_PADDING);
+        int defaultRowStep = BUTTON_HEIGHT + ROW_GAP;
+        int defaultContentHeight = 198;
+        int rowStep = availableHeight < defaultContentHeight ? Math.max(BUTTON_HEIGHT + 1, (availableHeight - 48) / 6) : defaultRowStep;
+        int sectionGap = availableHeight < defaultContentHeight ? Math.max(6, SECTION_GAP - 4) : SECTION_GAP;
+
+        int generalTitleY = CONTENT_TOP;
+        int generalButtonY = generalTitleY + 15;
+        int generalProviderButtonY = generalButtonY + rowStep;
+        int tooltipsTitleY = generalProviderButtonY + BUTTON_HEIGHT + sectionGap;
+        int tooltipsButtonY = tooltipsTitleY + 15;
+        int indicatorsTitleY = tooltipsButtonY + rowStep * 3 + sectionGap - 5;
+        int indicatorsButtonY = indicatorsTitleY + 15;
+
+        return new Layout(left, width, rowStep, generalTitleY, generalButtonY, generalProviderButtonY, tooltipsTitleY, tooltipsButtonY, indicatorsTitleY, indicatorsButtonY);
+    }
+
     private static Component state(boolean on, UiTheme theme) {
         return colored(on ? theme.gui_onColor() : theme.gui_offColor(),
                 Component.translatable(on ? "menu.irisv.on" : "menu.irisv.off"));
@@ -223,4 +275,70 @@ public class MenuOptionIrisv extends Screen {
             }
         }
     }
+
+    private <T extends AbstractWidget> T addContentWidget(T widget, int x, int y, int width) {
+        contentWidgets.add(new PositionedWidget(widget, x, y, width));
+        return this.addRenderableWidget(widget);
+    }
+
+    private void updateContentPositions() {
+        int listBottom = listBottom();
+        for (PositionedWidget positioned : contentWidgets) {
+            AbstractWidget widget = positioned.widget;
+            widget.setX(positioned.x);
+            widget.setY(positioned.y - scrollOffset);
+            widget.setWidth(positioned.width);
+
+            boolean visible = widget.getY() >= CONTENT_TOP && widget.getY() + BUTTON_HEIGHT <= listBottom;
+            widget.visible = visible;
+            widget.active = visible;
+        }
+    }
+
+    private void renderScrollbar(GuiGraphics guiGraphics, UiTheme theme) {
+        if (maxScroll() <= 0) return;
+
+        Layout layout = createLayout();
+        int top = CONTENT_TOP;
+        int bottom = listBottom();
+        int barX = layout.left + layout.width + 8;
+        int trackHeight = bottom - top;
+        int thumbHeight = Math.max(18, (trackHeight * trackHeight) / Math.max(trackHeight, contentHeight()));
+        int thumbY = top + (int) ((trackHeight - thumbHeight) * (scrollOffset / (float) maxScroll()));
+
+        guiGraphics.fill(barX, top, barX + 2, bottom, theme.gui_separatorLine());
+        guiGraphics.fill(barX - 1, thumbY, barX + 3, thumbY + thumbHeight, theme.gui_lineColor());
+    }
+
+    private void clampScroll() {
+        scrollOffset = Mth.clamp(scrollOffset, 0, maxScroll());
+    }
+
+    private int maxScroll() {
+        return Math.max(0, contentHeight() - (listBottom() - CONTENT_TOP));
+    }
+
+    private int contentHeight() {
+        Layout layout = createLayout();
+        return layout.indicatorsButtonY + BUTTON_HEIGHT - CONTENT_TOP;
+    }
+
+    private int listBottom() {
+        return this.height - CONTENT_BOTTOM_PADDING;
+    }
+
+    private record PositionedWidget(AbstractWidget widget, int x, int y, int width) {}
+
+    private record Layout(
+            int left,
+            int width,
+            int rowStep,
+            int generalTitleY,
+            int generalButtonY,
+            int generalProviderButtonY,
+            int tooltipsTitleY,
+            int tooltipsButtonY,
+            int indicatorsTitleY,
+            int indicatorsButtonY
+    ) {}
 }
