@@ -18,7 +18,7 @@ public class MainMenu {
     private static final int BUTTON_HEIGHT = 20;
     private static final int DEFAULT_BUTTON_WIDTH = 200;
     private static final int ROW_GAP = 4;
-    private static final int WIKI_BUTTON_WIDTH = 20;
+    private static final int WIKI_BUTTON_SIZE = 20;
     private static final ResourceLocation WIKI_ICON = ResourceLocation.fromNamespaceAndPath(Irisv.MODID, "textures/gui/wiki_icon.png");
 
     @SubscribeEvent
@@ -30,7 +30,7 @@ public class MainMenu {
                     .orElseGet(() -> new Anchor((screen.width - DEFAULT_BUTTON_WIDTH) / 2, screen.height / 4 + 96, DEFAULT_BUTTON_WIDTH));
             moveButtonsBelowMods(screen, modsAnchor);
             int irisvY = modsAnchor.y() + BUTTON_HEIGHT + ROW_GAP;
-            int optionsWidth = Math.max(80, modsAnchor.width() - WIKI_BUTTON_WIDTH - ROW_GAP);
+            int optionsWidth = Math.max(80, modsAnchor.width() - WIKI_BUTTON_SIZE - ROW_GAP);
 
             Button irisvOptionsButton = Button.builder(
                             Component.translatable("menu.irisv.options"),
@@ -71,13 +71,13 @@ public class MainMenu {
 
     private static class WikiButton extends Button {
         private WikiButton(int x, int y, OnPress onPress) {
-            super(x, y, WIKI_BUTTON_WIDTH, BUTTON_HEIGHT, Component.translatable(""), onPress, DEFAULT_NARRATION);
+            super(x, y, WIKI_BUTTON_SIZE, WIKI_BUTTON_SIZE, Component.empty(), onPress, DEFAULT_NARRATION);
         }
 
         @Override
         protected void renderWidget(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
             super.renderWidget(guiGraphics, mouseX, mouseY, partialTick);
-            guiGraphics.blit(WIKI_ICON, getX() + 2, getY() + 2, 0.0F, 0.0F, 16, 16, 16, 16);
+            guiGraphics.blit(WIKI_ICON, getX() + 2, getY() + 2, 0, 0.0F, 0.0F, 16, 16, 16, 16);
         }
     }
 }

@@ -2,6 +2,7 @@ package net.opal.irisv.menu;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
@@ -42,55 +43,55 @@ public class ProviderOptionsMenu extends Screen {
             config.enableBlockProviderTooltips = !config.enableBlockProviderTooltips;
             button.setMessage(toggleText("menu.irisv.providers.blocks", config.enableBlockProviderTooltips));
             config.save();
-        });
+        }, "menu.irisv.providers.tooltip.blocks");
         general.add(toggleText("menu.irisv.providers.entities", config.enableEntityTooltip), button -> {
             config.enableEntityTooltip = !config.enableEntityTooltip;
             button.setMessage(toggleText("menu.irisv.providers.entities", config.enableEntityTooltip));
             config.save();
-        });
+        }, "menu.irisv.providers.tooltip.entities");
         general.add(toggleText("menu.irisv.providers.drops", config.enableDropTooltip), button -> {
             config.enableDropTooltip = !config.enableDropTooltip;
             button.setMessage(toggleText("menu.irisv.providers.drops", config.enableDropTooltip));
             config.save();
-        });
+        }, "menu.irisv.providers.tooltip.drops");
         general.add(toggleText("menu.irisv.providers.fluids", config.enableFluidTooltips), button -> {
             config.enableFluidTooltips = !config.enableFluidTooltips;
             button.setMessage(toggleText("menu.irisv.providers.fluids", config.enableFluidTooltips));
             config.save();
-        });
+        }, "menu.irisv.providers.tooltip.fluids");
         general.add(toggleText("menu.irisv.providers.inventories", config.enableInventoryTooltips), button -> {
             config.enableInventoryTooltips = !config.enableInventoryTooltips;
             button.setMessage(toggleText("menu.irisv.providers.inventories", config.enableInventoryTooltips));
             config.save();
-        });
+        }, "menu.irisv.providers.tooltip.inventories");
 
         Section inventory = addSection("menu.irisv.providers.section.inventory");
         inventory.add(toggleText("menu.irisv.providers.recipes", config.enableRecipeOverlay), button -> {
             config.enableRecipeOverlay = !config.enableRecipeOverlay;
             button.setMessage(toggleText("menu.irisv.providers.recipes", config.enableRecipeOverlay));
             config.save();
-        });
+        }, "menu.irisv.providers.tooltip.recipes");
 
         Section hud = addSection("menu.irisv.providers.section.hud");
         hud.add(toggleText("menu.irisv.providers.hud", config.enableIndicators), button -> {
             config.enableIndicators = !config.enableIndicators;
             button.setMessage(toggleText("menu.irisv.providers.hud", config.enableIndicators));
             config.save();
-        });
+        }, "menu.irisv.providers.tooltip.hud");
         hud.add(toggleText("menu.irisv.providers.tool_durability", config.enableToolDurabilityIndicator), button -> {
             config.enableToolDurabilityIndicator = !config.enableToolDurabilityIndicator;
             button.setMessage(toggleText("menu.irisv.providers.tool_durability", config.enableToolDurabilityIndicator));
             config.save();
-        });
+        }, "menu.irisv.providers.tooltip.tool_durability");
         hud.add(toggleText("menu.irisv.providers.durability_details", config.showDurabilityDetails), button -> {
             config.showDurabilityDetails = !config.showDurabilityDetails;
             button.setMessage(toggleText("menu.irisv.providers.durability_details", config.showDurabilityDetails));
             config.save();
-        });
+        }, "menu.irisv.providers.tooltip.durability_details");
 
         this.addRenderableWidget(Button.builder(Component.translatable("menu.irisv.return"), button -> {
             if (this.minecraft != null) this.minecraft.setScreen(parent);
-        }).pos((this.width - returnButtonWidth()) / 2, this.height - 30).size(returnButtonWidth(), BUTTON_HEIGHT).build());
+        }).tooltip(tooltip("menu.irisv.tooltip.return")).pos((this.width - returnButtonWidth()) / 2, this.height - 30).size(returnButtonWidth(), BUTTON_HEIGHT).build());
 
         clampScroll();
         updateButtonPositions();
@@ -102,8 +103,9 @@ public class ProviderOptionsMenu extends Screen {
         return section;
     }
 
-    private Button addOptionButton(Component label, Button.OnPress onPress) {
+    private Button addOptionButton(Component label, Button.OnPress onPress, String tooltipKey) {
         Button button = Button.builder(label, onPress)
+                .tooltip(tooltip(tooltipKey))
                 .pos(0, 0)
                 .size(120, BUTTON_HEIGHT)
                 .build();
@@ -310,8 +312,8 @@ public class ProviderOptionsMenu extends Screen {
             this.titleKey = titleKey;
         }
 
-        private void add(Component label, Button.OnPress onPress) {
-            options.add(new Option(addOptionButton(label, onPress)));
+        private void add(Component label, Button.OnPress onPress, String tooltipKey) {
+            options.add(new Option(addOptionButton(label, onPress, tooltipKey)));
         }
     }
 
@@ -327,4 +329,8 @@ public class ProviderOptionsMenu extends Screen {
     }
 
     private record Layout(int left, int width, int contentHeight) {}
+
+    private static Tooltip tooltip(String key) {
+        return Tooltip.create(Component.translatable(key));
+    }
 }

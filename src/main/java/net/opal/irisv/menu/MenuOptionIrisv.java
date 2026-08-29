@@ -4,6 +4,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
@@ -42,23 +43,23 @@ public class MenuOptionIrisv extends Screen {
             config.enableDebugChat = !config.enableDebugChat;
             b.setMessage(getDebugButtonText(config.enableDebugChat));
             config.save();
-        }).pos(layout.left, layout.generalButtonY).size(halfW, BUTTON_HEIGHT).build(), layout.left, layout.generalButtonY, halfW);
+        }).tooltip(tooltip("menu.irisv.tooltip.debug_chat")).pos(layout.left, layout.generalButtonY).size(halfW, BUTTON_HEIGHT).build(), layout.left, layout.generalButtonY, halfW);
 
         addContentWidget(Button.builder(getThemeButtonText(config), b -> {
             config.theme = config.theme.next();
             b.setMessage(getThemeButtonText(config));
             config.save();
-        }).pos(layout.left + halfW + BUTTON_GAP, layout.generalButtonY).size(halfW, BUTTON_HEIGHT).build(), layout.left + halfW + BUTTON_GAP, layout.generalButtonY, halfW);
+        }).tooltip(tooltip("menu.irisv.tooltip.theme")).pos(layout.left + halfW + BUTTON_GAP, layout.generalButtonY).size(halfW, BUTTON_HEIGHT).build(), layout.left + halfW + BUTTON_GAP, layout.generalButtonY, halfW);
 
         addContentWidget(Button.builder(Component.translatable("menu.irisv.providers"), b -> {
             if (this.minecraft != null) this.minecraft.setScreen(new ProviderOptionsMenu(this));
-        }).pos(layout.left, layout.generalProviderButtonY).size(layout.width, BUTTON_HEIGHT).build(), layout.left, layout.generalProviderButtonY, layout.width);
+        }).tooltip(tooltip("menu.irisv.tooltip.providers")).pos(layout.left, layout.generalProviderButtonY).size(layout.width, BUTTON_HEIGHT).build(), layout.left, layout.generalProviderButtonY, layout.width);
 
         addContentWidget(Button.builder(getOverlayButtonText(config.enableBlockTooltipOverlay), b -> {
             config.enableBlockTooltipOverlay = !config.enableBlockTooltipOverlay;
             b.setMessage(getOverlayButtonText(config.enableBlockTooltipOverlay));
             config.save();
-        }).pos(layout.left, layout.tooltipsButtonY).size(halfW, BUTTON_HEIGHT).build(), layout.left, layout.tooltipsButtonY, halfW);
+        }).tooltip(tooltip("menu.irisv.tooltip.overlay")).pos(layout.left, layout.tooltipsButtonY).size(halfW, BUTTON_HEIGHT).build(), layout.left, layout.tooltipsButtonY, halfW);
 
         addContentWidget(new PositionSlider(layout.left + halfW + BUTTON_GAP, layout.tooltipsButtonY, halfW, BUTTON_HEIGHT, config), layout.left + halfW + BUTTON_GAP, layout.tooltipsButtonY, halfW);
 
@@ -66,41 +67,41 @@ public class MenuOptionIrisv extends Screen {
             config.advancedTooltips = !config.advancedTooltips;
             b.setMessage(getAdvancedButtonText(config.advancedTooltips));
             config.save();
-        }).pos(layout.left, layout.tooltipsButtonY + layout.rowStep).size(halfW, BUTTON_HEIGHT).build(), layout.left, layout.tooltipsButtonY + layout.rowStep, halfW);
+        }).tooltip(tooltip("menu.irisv.tooltip.advanced_tooltips")).pos(layout.left, layout.tooltipsButtonY + layout.rowStep).size(halfW, BUTTON_HEIGHT).build(), layout.left, layout.tooltipsButtonY + layout.rowStep, halfW);
 
         addContentWidget(Button.builder(getLiquidAdvancedButtonText(config.advancedLiquidStats), b -> {
             config.advancedLiquidStats = !config.advancedLiquidStats;
             b.setMessage(getLiquidAdvancedButtonText(config.advancedLiquidStats));
             config.save();
-        }).pos(layout.left + halfW + BUTTON_GAP, layout.tooltipsButtonY + layout.rowStep).size(halfW, BUTTON_HEIGHT).build(), layout.left + halfW + BUTTON_GAP, layout.tooltipsButtonY + layout.rowStep, halfW);
+        }).tooltip(tooltip("menu.irisv.tooltip.advanced_liquids")).pos(layout.left + halfW + BUTTON_GAP, layout.tooltipsButtonY + layout.rowStep).size(halfW, BUTTON_HEIGHT).build(), layout.left + halfW + BUTTON_GAP, layout.tooltipsButtonY + layout.rowStep, halfW);
 
         addContentWidget(Button.builder(getEntityButtonText(config.enableEntityTooltip), b -> {
             config.enableEntityTooltip = !config.enableEntityTooltip;
             b.setMessage(getEntityButtonText(config.enableEntityTooltip));
             config.save();
-        }).pos(layout.left, layout.tooltipsButtonY + layout.rowStep * 2).size(halfW, BUTTON_HEIGHT).build(), layout.left, layout.tooltipsButtonY + layout.rowStep * 2, halfW);
+        }).tooltip(tooltip("menu.irisv.tooltip.entities")).pos(layout.left, layout.tooltipsButtonY + layout.rowStep * 2).size(halfW, BUTTON_HEIGHT).build(), layout.left, layout.tooltipsButtonY + layout.rowStep * 2, halfW);
 
         addContentWidget(Button.builder(getCompactButtonText(config.compactMode), b -> {
             config.compactMode = !config.compactMode;
             b.setMessage(getCompactButtonText(config.compactMode));
             config.save();
-        }).pos(layout.left + halfW + BUTTON_GAP, layout.tooltipsButtonY + layout.rowStep * 2).size(halfW, BUTTON_HEIGHT).build(), layout.left + halfW + BUTTON_GAP, layout.tooltipsButtonY + layout.rowStep * 2, halfW);
+        }).tooltip(tooltip("menu.irisv.tooltip.compact")).pos(layout.left + halfW + BUTTON_GAP, layout.tooltipsButtonY + layout.rowStep * 2).size(halfW, BUTTON_HEIGHT).build(), layout.left + halfW + BUTTON_GAP, layout.tooltipsButtonY + layout.rowStep * 2, halfW);
 
         addContentWidget(Button.builder(getIndicatorGlobalButtonText(config.enableIndicators), b -> {
             config.enableIndicators = !config.enableIndicators;
             b.setMessage(getIndicatorGlobalButtonText(config.enableIndicators));
             config.save();
-        }).pos(layout.left, layout.indicatorsButtonY).size(halfW, BUTTON_HEIGHT).build(), layout.left, layout.indicatorsButtonY, halfW);
+        }).tooltip(tooltip("menu.irisv.tooltip.hud")).pos(layout.left, layout.indicatorsButtonY).size(halfW, BUTTON_HEIGHT).build(), layout.left, layout.indicatorsButtonY, halfW);
 
         addContentWidget(Button.builder(getIndicatorSideButtonText(config.indicatorPosition), b -> {
             config.indicatorPosition = config.indicatorPosition.next();
             b.setMessage(getIndicatorSideButtonText(config.indicatorPosition));
             config.save();
-        }).pos(layout.left + halfW + BUTTON_GAP, layout.indicatorsButtonY).size(halfW, BUTTON_HEIGHT).build(), layout.left + halfW + BUTTON_GAP, layout.indicatorsButtonY, halfW);
+        }).tooltip(tooltip("menu.irisv.tooltip.side")).pos(layout.left + halfW + BUTTON_GAP, layout.indicatorsButtonY).size(halfW, BUTTON_HEIGHT).build(), layout.left + halfW + BUTTON_GAP, layout.indicatorsButtonY, halfW);
 
         this.addRenderableWidget(Button.builder(Component.translatable("menu.irisv.return"), b -> {
             if (this.minecraft != null) this.minecraft.setScreen(parent);
-        }).pos(layout.left, this.height - 30).size(layout.width, BUTTON_HEIGHT).build());
+        }).tooltip(tooltip("menu.irisv.tooltip.return")).pos(layout.left, this.height - 30).size(layout.width, BUTTON_HEIGHT).build());
 
         clampScroll();
         updateContentPositions();
@@ -214,6 +215,10 @@ public class MenuOptionIrisv extends Screen {
         return Component.literal("§8> §7").append(Component.translatable(key));
     }
 
+    private static Tooltip tooltip(String key) {
+        return Tooltip.create(Component.translatable(key));
+    }
+
     private Layout createLayout() {
         int width = Math.min(BASE_WIDTH, Math.max(120, this.width - 36));
         int left = (this.width - width) / 2;
@@ -249,6 +254,7 @@ public class MenuOptionIrisv extends Screen {
         public PositionSlider(int x, int y, int width, int height, ConfigOptions config) {
             super(x, y, width, height, Component.empty(), config.tooltipPosition.legacyValue() / 4.0);
             this.config = config;
+            setTooltip(tooltip("menu.irisv.tooltip.position"));
             updateMessage();
         }
 
