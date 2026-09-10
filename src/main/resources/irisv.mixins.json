@@ -6,7 +6,8 @@
     "FurnaceBlockEntityAccessor"
   ],
   "client": [
-    "DestroyAccessor"
+    "DestroyAccessor",
+    "TitleLogoMixin"
   ],
   "injectors": {
     "defaultRequire": 1
