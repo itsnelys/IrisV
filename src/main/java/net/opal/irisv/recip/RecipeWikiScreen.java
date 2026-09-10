@@ -18,6 +18,7 @@ public class RecipeWikiScreen extends Screen {
     private static final int CONTENT_BOTTOM_PADDING = 76;
     private static final int LINE_GAP = 3;
     private static final int TAB_GAP = 2;
+    private static final int FOOTER_HEIGHT = 64;
 
     private final Screen parent;
     private Tab activeTab = Tab.CATALOG;
@@ -65,11 +66,12 @@ public class RecipeWikiScreen extends Screen {
     @Override
     public void render(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
         UiTheme theme = UiTheme.getCurrent();
+        renderBackground(gui, mouseX, mouseY, partialTick);
         gui.fill(0, 0, this.width, this.height, theme.gui_bgOverlay());
-        super.render(gui, mouseX, mouseY, partialTick);
 
         renderHeader(gui, theme);
         renderFooter(gui, theme);
+        for (var widget : renderables) widget.render(gui, mouseX, mouseY, partialTick);
         renderActiveTab(gui, theme);
         renderContent(gui, theme);
         renderScrollbar(gui, theme);
@@ -131,19 +133,9 @@ public class RecipeWikiScreen extends Screen {
     }
 
     private void renderFooter(GuiGraphics gui, UiTheme theme) {
-        int footerY = this.height - 40;
-        int buttonWidth = returnButtonWidth();
-        int holeLeft = (this.width - buttonWidth) / 2;
-        int holeRight = holeLeft + buttonWidth;
-
-        gui.fill(0, footerY, holeLeft, this.height, theme.gui_barColor());
-        gui.fill(0, footerY, holeLeft, footerY + 1, theme.gui_lineColor());
-        gui.fill(holeRight, footerY, this.width, this.height, theme.gui_barColor());
-        gui.fill(holeRight, footerY, this.width, footerY + 1, theme.gui_lineColor());
-
-        gui.fill(holeLeft, footerY, holeRight, this.height - 30, theme.gui_barColor());
-        gui.fill(holeLeft, footerY, holeRight, footerY + 1, theme.gui_lineColor());
-        gui.fill(holeLeft, this.height - 10, holeRight, this.height, theme.gui_barColor());
+        int footerY = this.height - FOOTER_HEIGHT;
+        gui.fill(0, footerY, this.width, this.height, theme.gui_barColor());
+        gui.fill(0, footerY, this.width, footerY + 1, theme.gui_lineColor());
     }
 
     private int contentWidth() {
