@@ -181,6 +181,7 @@ public final class RecipeInventoryOverlay {
             }
         }
         renderCategoryMenu(gui, layout, event.getMouseX(), event.getMouseY());
+        renderFavoriteFilter(gui, layout, event.getMouseX(), event.getMouseY());
         if (hovered.isEmpty()) {
             hovered = favoriteAt(layout, event.getMouseX(), event.getMouseY());
         }
@@ -192,7 +193,6 @@ public final class RecipeInventoryOverlay {
         } else if (isHovering(event.getMouseX(), event.getMouseY(), layout.searchX, layout.searchY, layout.searchWidth, SEARCH_HEIGHT)) {
             renderSearchHelpTooltip(gui, event.getMouseX(), event.getMouseY());
         }
-        renderFavoriteFilter(gui, layout, event.getMouseX(), event.getMouseY());
     }
 
     public static void onMouseClicked(ScreenEvent.MouseButtonPressed.Pre event) {
@@ -574,7 +574,8 @@ public final class RecipeInventoryOverlay {
             renderFavoriteStar(gui, x, y);
             if (view.isRecipe()) {
                 gui.pose().pushPose();
-                gui.pose().translate(x + 9, y + 9, 400);
+                // Item rendering adds its own depth; keep the badge below vanilla tooltips (Z=400).
+                gui.pose().translate(x + 9, y + 9, 100);
                 gui.pose().scale(0.5F, 0.5F, 1);
                 gui.renderFakeItem(RecipeDisplayScreen.workstation(view.recipes.getFirst()), 0, 0);
                 gui.pose().popPose();
@@ -677,7 +678,7 @@ public final class RecipeInventoryOverlay {
         int y = layout.favoritesY - 50;
         int width = favoriteWidth(layout);
         gui.pose().pushPose();
-        gui.pose().translate(0, 0, 650);
+        gui.pose().translate(0, 0, 100);
         gui.fill(x, y, x + width, y + 18, 0xE5000000);
         gui.renderOutline(x, y, width, 18, favoriteSearchBox != null && favoriteSearchBox.isFocused() ? 0xFFFFFFFF : 0xFFA0A0A0);
         if (favoriteSearchBox != null) {

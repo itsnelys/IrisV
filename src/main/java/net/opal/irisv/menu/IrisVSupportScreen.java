@@ -35,8 +35,10 @@ public final class IrisVSupportScreen extends Screen {
             if (Files.exists(ConfigOptions.exchangePath())) confirm("irisv.settings.overwrite", this::exportFile);
             else exportFile();
         }).bounds(x, 42, half, 20).build());
-        addRenderableWidget(Button.builder(Component.translatable("irisv.settings.import"), button ->
-                confirm("irisv.settings.confirm", this::importFile)).bounds(x + half + 4, 42, half, 20).build());
+        addRenderableWidget(Button.builder(Component.translatable("irisv.settings.import"), button -> {
+            if (Files.notExists(ConfigOptions.exchangePath())) missingImport();
+            else confirm("irisv.settings.confirm", this::importFile);
+        }).bounds(x + half + 4, 42, half, 20).build());
         addRenderableWidget(Button.builder(Component.translatable("irisv.settings.folder"), button -> {
             try {
                 Files.createDirectories(ConfigOptions.exchangePath().getParent());
@@ -69,7 +71,16 @@ public final class IrisVSupportScreen extends Screen {
             status = Component.translatable("irisv.settings.imported").withStyle(ChatFormatting.GREEN);
             net.opal.irisv.commun.utils.FunctionUtilsChat.clientAction(minecraft.player, "irisv.settings.imported");
             scroll = 0;
+        } catch (java.nio.file.NoSuchFileException exception) {
+            if (ConfigOptions.exchangePath().toString().equals(exception.getFile())) missingImport();
+            else failure(exception);
         } catch (Exception exception) { failure(exception); }
+    }
+
+    private void missingImport() {
+        status = Component.translatable("irisv.settings.missing").withStyle(ChatFormatting.YELLOW);
+        net.opal.irisv.commun.utils.FunctionUtilsChat.clientAction(minecraft.player, "irisv.settings.missing");
+        scroll = 0;
     }
 
     private void failure(Exception exception) {

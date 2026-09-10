@@ -1,4 +1,5 @@
 {
+  "irisv.settings.missing": "Aucun fichier à importer. Exportez vos réglages ou placez un fichier irisv-settings.json dans le dossier IrisV.",
   "irisv.chat.no_uses": "Aucune utilisation trouvée pour %s.",
   "irisv.chat.no_recipe": "Aucune recette trouvée pour %s.",
   "irisv.chat.uses_opened": "Consultation des utilisations de %s.",
