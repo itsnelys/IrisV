@@ -15,7 +15,7 @@ final class RecipeSearch {
 
         for (String token : query.toLowerCase(Locale.ROOT).split("\\s+")) {
             if (token.isBlank()) continue;
-            if (!matchesToken(data, token)) return false;
+            if (!matchesToken(stack, data, token)) return false;
         }
 
         return true;
@@ -26,7 +26,7 @@ final class RecipeSearch {
 
         SearchData data = data(stack);
         for (String token : query.toLowerCase(Locale.ROOT).split("\\s+")) {
-            if (!token.isBlank() && matchesToken(data, token)) return true;
+            if (!token.isBlank() && matchesToken(stack, data, token)) return true;
         }
 
         return false;
@@ -42,7 +42,14 @@ final class RecipeSearch {
         );
     }
 
-    private static boolean matchesToken(SearchData data, String token) {
+    private static boolean matchesToken(ItemStack stack, SearchData data, String token) {
+        if (token.startsWith(":")) return switch (token) {
+            case ":food", ":nourriture" -> stack.has(net.minecraft.core.component.DataComponents.FOOD);
+            case ":armor", ":protection" -> stack.getItem() instanceof net.minecraft.world.item.ArmorItem;
+            case ":durability", ":durabilite" -> stack.isDamageableItem();
+            case ":fuel", ":combustible" -> stack.getBurnTime(net.minecraft.world.item.crafting.RecipeType.SMELTING) > 0;
+            default -> false;
+        };
         if (token.startsWith("@")) {
             return data.namespace.contains(token.substring(1));
         }

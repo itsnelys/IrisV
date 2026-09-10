@@ -39,8 +39,14 @@ public class ConfigOptions {
     public boolean compactMode = false;
     public String recipeCategory = "ALL";
     public boolean recipeHighlightSearchMode = false;
+    public boolean inventorySearchHighlight = true;
+    public boolean recipeAvailability = true;
+    public List<String> disabledRecipeHudCategories = new ArrayList<>();
     public int recipePage = 0;
     public List<String> recipeFavorites = new ArrayList<>();
+    public List<String> savedRecipeBookmarks = new ArrayList<>();
+    public String favoriteFilter = "GLOBAL";
+    public List<String> favoriteOrder = new ArrayList<>();
 
     private static final Path CONFIG_PATH = FMLPaths.CONFIGDIR.get()
             .resolve("irisv")
@@ -90,8 +96,14 @@ public class ConfigOptions {
         options.compactMode = readBoolean(root, "compactMode", options.compactMode);
         options.recipeCategory = readString(root, "recipeCategory", options.recipeCategory);
         options.recipeHighlightSearchMode = readBoolean(root, "recipeHighlightSearchMode", options.recipeHighlightSearchMode);
+        options.inventorySearchHighlight = readBoolean(root, "inventorySearchHighlight", options.inventorySearchHighlight);
+        options.recipeAvailability = readBoolean(root, "recipeAvailability", options.recipeAvailability);
+        options.disabledRecipeHudCategories = readStringList(root, "disabledRecipeHudCategories");
         options.recipePage = readInt(root, "recipePage", options.recipePage);
         options.recipeFavorites = readStringList(root, "recipeFavorites");
+        options.savedRecipeBookmarks = readStringList(root, "savedRecipeBookmarks");
+        options.favoriteFilter = readString(root, "favoriteFilter", "GLOBAL");
+        options.favoriteOrder = readStringList(root, "favoriteOrder");
         options.indicatorPosition = readEnum(root, "indicatorPosition", IndicatorPosition.class, IndicatorPosition.RIGHT);
         options.tooltipPosition = readEnum(root, "tooltipPosition", TooltipPosition.class, TooltipPosition.TOP_CENTER);
         options.theme = readEnum(root, root.has("theme") ? "theme" : "themeIndex", Theme.class, Theme.DARKNESS);
@@ -119,12 +131,24 @@ public class ConfigOptions {
         root.addProperty("compactMode", compactMode);
         root.addProperty("recipeCategory", recipeCategory);
         root.addProperty("recipeHighlightSearchMode", recipeHighlightSearchMode);
+        root.addProperty("inventorySearchHighlight", inventorySearchHighlight);
+        root.addProperty("recipeAvailability", recipeAvailability);
+        JsonArray disabledHuds = new JsonArray();
+        for (String key : disabledRecipeHudCategories) disabledHuds.add(key);
+        root.add("disabledRecipeHudCategories", disabledHuds);
         root.addProperty("recipePage", recipePage);
         JsonArray favoriteArray = new JsonArray();
         for (String favorite : recipeFavorites) {
             favoriteArray.add(favorite);
         }
         root.add("recipeFavorites", favoriteArray);
+        JsonArray bookmarks = new JsonArray();
+        for (String bookmark : savedRecipeBookmarks) bookmarks.add(bookmark);
+        root.add("savedRecipeBookmarks", bookmarks);
+        root.addProperty("favoriteFilter", favoriteFilter);
+        JsonArray order = new JsonArray();
+        for (String key : favoriteOrder) order.add(key);
+        root.add("favoriteOrder", order);
         return GSON.toJson(root);
     }
 
@@ -135,6 +159,91 @@ public class ConfigOptions {
             FunctionUtilsLogs.infoLog("Config", "Config saved to " + CONFIG_PATH);
         } catch (IOException e) {
             FunctionUtilsLogs.errorLog("Config", "Error saving config: " + e.getMessage());
+        }
+    }
+
+    public static Path exchangePath() {
+        return CONFIG_PATH.resolveSibling("irisv-settings.json");
+    }
+
+    private static final List<String> PRIVATE_STATE = List.of("recipeFavorites", "savedRecipeBookmarks",
+            "favoriteOrder", "favoriteFilter", "recipeCategory", "recipePage", "recipeHighlightSearchMode");
+
+    public String exportSettings() {
+        JsonObject settings = JsonParser.parseString(toJson()).getAsJsonObject();
+        PRIVATE_STATE.forEach(settings::remove);
+        JsonObject document = new JsonObject();
+        document.addProperty("format", "irisv-settings");
+        document.addProperty("version", 1);
+        document.add("settings", settings);
+        return GSON.toJson(document);
+    }
+
+    ConfigOptions mergeSettings(String json) {
+        JsonObject document = JsonParser.parseString(json).getAsJsonObject();
+        if (!document.has("format") || !"irisv-settings".equals(document.get("format").getAsString())
+                || !document.has("version") || !"1".equals(document.get("version").getAsString())
+                || !document.has("settings") || !document.get("settings").isJsonObject()) {
+            throw new IllegalArgumentException("Unsupported settings format");
+        }
+        JsonObject merged = JsonParser.parseString(toJson()).getAsJsonObject();
+        JsonObject incoming = document.getAsJsonObject("settings");
+        if (incoming.size() == 0) throw new IllegalArgumentException("Empty settings");
+        for (var entry : incoming.entrySet()) {
+            String key = entry.getKey();
+            if (PRIVATE_STATE.contains(key)) continue;
+            JsonElement expected = merged.get(key);
+            JsonElement value = entry.getValue();
+            if (expected == null) throw new IllegalArgumentException("Unknown setting: " + key);
+            boolean valid;
+            if (expected.isJsonArray()) {
+                valid = value.isJsonArray() && value.getAsJsonArray().size() <= 1024;
+                if (valid) for (JsonElement element : value.getAsJsonArray()) {
+                    valid &= element.isJsonPrimitive() && element.getAsJsonPrimitive().isString();
+                }
+            } else {
+                valid = value.isJsonPrimitive() && (expected.getAsJsonPrimitive().isBoolean()
+                        ? value.getAsJsonPrimitive().isBoolean() : value.getAsJsonPrimitive().isString());
+            }
+            if (!valid) throw new IllegalArgumentException("Invalid setting: " + key);
+            merged.add(key, value);
+        }
+        ConfigOptions result = fromJson(GSON.toJson(merged));
+        JsonObject normalized = JsonParser.parseString(result.toJson()).getAsJsonObject();
+        for (String key : incoming.keySet()) {
+            if (!PRIVATE_STATE.contains(key) && !normalized.get(key).equals(merged.get(key))) {
+                throw new IllegalArgumentException("Invalid setting value: " + key);
+            }
+        }
+        return result;
+    }
+
+    public void exportSettingsFile() throws IOException {
+        writeAtomic(exchangePath(), exportSettings());
+    }
+
+    public static void importSettingsFile() throws IOException {
+        if (Files.size(exchangePath()) > 262144) throw new IOException("Settings file too large");
+        ConfigOptions current = getInstance();
+        ConfigOptions next = current.mergeSettings(Files.readString(exchangePath()));
+        writeAtomic(CONFIG_PATH.resolveSibling("options.before-import.json"), current.toJson());
+        writeAtomic(CONFIG_PATH, next.toJson());
+        INSTANCE = next;
+    }
+
+    private static void writeAtomic(Path path, String text) throws IOException {
+        Files.createDirectories(path.getParent());
+        Path temporary = Files.createTempFile(path.getParent(), "irisv-", ".tmp");
+        try {
+            Files.writeString(temporary, text);
+            try {
+                Files.move(temporary, path, java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            } catch (java.nio.file.AtomicMoveNotSupportedException ignored) {
+                Files.move(temporary, path, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
+        } finally {
+            Files.deleteIfExists(temporary);
         }
     }
 

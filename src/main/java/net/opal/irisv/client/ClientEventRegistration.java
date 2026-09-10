@@ -30,7 +30,9 @@ public final class ClientEventRegistration {
         NeoForge.EVENT_BUS.register(MainMenuTitleOverlay.class);
         NeoForge.EVENT_BUS.addListener(RecipeInventoryOverlay::onScreenInit);
         NeoForge.EVENT_BUS.addListener(RecipeInventoryOverlay::onScreenRender);
+        NeoForge.EVENT_BUS.addListener(RecipeInventoryOverlay::onScreenRenderPre);
         NeoForge.EVENT_BUS.addListener(RecipeInventoryOverlay::onMouseClicked);
+        NeoForge.EVENT_BUS.addListener(RecipeInventoryOverlay::onMouseReleased);
         NeoForge.EVENT_BUS.addListener(RecipeInventoryOverlay::onMouseScrolled);
         NeoForge.EVENT_BUS.addListener(RecipeInventoryOverlay::onKeyPressed);
         NeoForge.EVENT_BUS.addListener(RecipeInventoryOverlay::onCharacterTyped);
@@ -38,6 +40,8 @@ public final class ClientEventRegistration {
     }
 
     private static void registerGuiLayers(RegisterGuiLayersEvent event) {
+        event.registerAboveAll(ResourceLocation.fromNamespaceAndPath(Irisv.MODID, "pinned_recipe"),
+                (gui, delta) -> net.opal.irisv.recip.PinnedRecipeHud.render(gui));
         event.registerAboveAll(
                 ResourceLocation.fromNamespaceAndPath(Irisv.MODID, "indicators"),
                 IndicatorOverlayRenderer::render

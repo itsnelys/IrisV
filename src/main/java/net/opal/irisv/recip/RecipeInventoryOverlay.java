@@ -34,17 +34,17 @@ public final class RecipeInventoryOverlay {
     private static final int SEARCH_HEIGHT = 22;
     private static final int PAGE_BUTTON_SIZE = 22;
     private static final int TOOL_BUTTON_WIDTH = 22;
-    private static final int FAVORITE_COLUMNS = 3;
+    private static final int FAVORITE_COLUMNS = 4;
     private static final long DOUBLE_CLICK_MS = 300L;
     private static final long PAGE_FADE_MS = 140L;
     private static final ResourceLocation OPTIONS_ICON = ResourceLocation.fromNamespaceAndPath(Irisv.MODID, "textures/gui/inventory_options.png");
     private static final ResourceLocation WIKI_ICON = ResourceLocation.fromNamespaceAndPath(Irisv.MODID, "textures/gui/wiki_icon.png");
     private static final ResourceLocation EYE_OPEN_ICON = ResourceLocation.fromNamespaceAndPath(Irisv.MODID, "textures/gui/eye_open.png");
     private static final ResourceLocation EYE_CLOSED_ICON = ResourceLocation.fromNamespaceAndPath(Irisv.MODID, "textures/gui/eye_closed.png");
-    private static final ResourceLocation PAGE_LEFT_ICON = ResourceLocation.fromNamespaceAndPath(Irisv.MODID, "textures/gui/page_left.png");
-    private static final ResourceLocation PAGE_RIGHT_ICON = ResourceLocation.fromNamespaceAndPath(Irisv.MODID, "textures/gui/page_right.png");
 
     private static EditBox searchBox;
+    private static EditBox favoriteSearchBox;
+    private static String favoriteQuery = "";
     private static String query = "";
     private static List<ItemStack> filteredItems = new ArrayList<>();
     private static final List<ItemStack> favorites = new ArrayList<>();
@@ -57,17 +57,39 @@ public final class RecipeInventoryOverlay {
     private static boolean recipePanelHidden;
     private static long lastSearchClickMs;
     private static boolean stateLoaded;
+    private enum FavoriteFilter { RECIPE, BLOCK, ITEM, GLOBAL }
+    private static FavoriteFilter favoriteFilter = FavoriteFilter.GLOBAL;
+    private static FavoriteView pressedFavorite;
+    private static Screen dragScreen;
+    private static double pressX, pressY;
+    private static boolean draggingFavorite;
+    private record FavoriteView(ItemStack stack, List<RecipeBookmarks.Entry> recipes) {
+        boolean isRecipe() { return !recipes.isEmpty(); }
+    }
+    private static RecipeDisplayScreen favoritePreview;
+    private static List<RecipeBookmarks.Entry> previewSource = List.of();
 
     private RecipeInventoryOverlay() {}
 
     public static void onScreenInit(ScreenEvent.Init.Post event) {
-        if (!isOverlayEnabled() || !(event.getScreen() instanceof AbstractContainerScreen<?> screen) || !isSupportedScreen(screen)) {
+        pressedFavorite = null;
+        draggingFavorite = false;
+        dragScreen = null;
+        Screen screen = event.getScreen();
+        if (!isOverlayEnabled() || !isSupportedScreen(screen)) {
             searchBox = null;
+            favoriteSearchBox = null;
             return;
         }
 
-        query = "";
+        if (!(screen instanceof RecipeDisplayScreen)) {
+            query = "";
+            favoriteQuery = "";
+        }
         RecipeItemIndex.rebuild();
+        RecipeBookmarks.invalidate();
+        favoritePreview = null;
+        previewSource = List.of();
         loadState();
         refreshFilteredItems();
 
@@ -86,14 +108,36 @@ public final class RecipeInventoryOverlay {
             saveState();
         });
         event.addListener(searchBox);
+        favoriteSearchBox = new EditBox(Minecraft.getInstance().font, layout.favoritesX + 4, layout.favoritesY - 45,
+                favoriteWidth(layout) - 20, 14, Component.translatable("recip.irisv.favorites.search"));
+        favoriteSearchBox.setBordered(false);
+        favoriteSearchBox.setMaxLength(80);
+        favoriteSearchBox.setHint(Component.translatable("recip.irisv.search"));
+        favoriteSearchBox.setTextColor(0xFFE5E5E5);
+        favoriteSearchBox.setValue(favoriteQuery);
+        favoriteSearchBox.visible = hasFavorites() && !recipePanelHidden;
+        favoriteSearchBox.setResponder(value -> { favoriteQuery = value; favoriteScroll = 0; });
+        event.addListener(favoriteSearchBox);
+    }
+
+    public static void onScreenRenderPre(ScreenEvent.Render.Pre event) {
+        if (Minecraft.getInstance().screen instanceof RecipeDisplayScreen browser && event.getScreen() == browser.originScreen()) {
+            event.setCanceled(true);
+        }
     }
 
     public static void onScreenRender(ScreenEvent.Render.Post event) {
-        if (!isOverlayEnabled() || !(event.getScreen() instanceof AbstractContainerScreen<?> screen) || !isSupportedScreen(screen)) return;
+        Screen screen = event.getScreen();
+        if (screen != Minecraft.getInstance().screen) return;
+        if (!isOverlayEnabled() || !isSupportedScreen(screen)) return;
         if (searchBox == null) return;
 
         GuiGraphics gui = event.getGuiGraphics();
         Layout layout = layout(screen);
+        if (favoriteSearchBox != null) {
+            favoriteSearchBox.visible = hasFavorites() && !recipePanelHidden;
+            if (!favoriteSearchBox.visible) favoriteSearchBox.setFocused(false);
+        }
 
         int totalPages = totalPages(layout);
         if (page >= totalPages) page = Math.max(0, totalPages - 1);
@@ -101,11 +145,13 @@ public final class RecipeInventoryOverlay {
         renderVisibilityButton(gui, layout, event.getMouseX(), event.getMouseY());
         if (recipePanelHidden) return;
 
-        renderPagination(gui, layout, totalPages);
+        renderInventorySearch(gui, screen);
+        renderPagination(gui, layout, totalPages, event.getMouseX(), event.getMouseY());
         renderSearchFrame(gui, layout);
         renderCategoryButton(gui, layout, event.getMouseX(), event.getMouseY());
         renderOptionsButton(gui, layout, event.getMouseX(), event.getMouseY());
         renderWikiButton(gui, layout, event.getMouseX(), event.getMouseY());
+        renderUnpinButton(gui, layout, event.getMouseX(), event.getMouseY());
         renderFavorites(gui, layout, event.getMouseX(), event.getMouseY());
         renderResetSearchButton(gui, layout, event.getMouseX(), event.getMouseY());
 
@@ -115,19 +161,43 @@ public final class RecipeInventoryOverlay {
         searchBox.render(gui, event.getMouseX(), event.getMouseY(), event.getPartialTick());
 
         ItemStack hovered = renderItems(gui, layout, event.getMouseX(), event.getMouseY());
+        if (pressedFavorite != null && dragScreen == screen) {
+            updateFavoriteDrag(event.getMouseX(), event.getMouseY());
+            if (draggingFavorite) {
+                renderFavoriteFilter(gui, layout, event.getMouseX(), event.getMouseY());
+                gui.pose().pushPose();
+                gui.pose().translate(0, 0, 700);
+                int insertion = favoriteInsertion(layout, event.getMouseX(), event.getMouseY());
+                if (insertion >= 0) {
+                    int columns = favoriteColumns(layout);
+                    int local = insertion - favoriteScroll * columns;
+                    int markerX = layout.favoritesX + (local % columns) * favoriteWidth(layout) / columns;
+                    int markerY = layout.favoritesY + (local / columns) * CELL_SIZE;
+                    gui.fill(markerX, markerY, markerX + 2, markerY + ITEM_SIZE, 0xFFFFFFFF);
+                }
+                gui.renderFakeItem(pressedFavorite.stack, event.getMouseX() - 8, event.getMouseY() - 8);
+                gui.pose().popPose();
+                return;
+            }
+        }
         renderCategoryMenu(gui, layout, event.getMouseX(), event.getMouseY());
         if (hovered.isEmpty()) {
             hovered = favoriteAt(layout, event.getMouseX(), event.getMouseY());
         }
-        if (!hovered.isEmpty() && !isInsideCategoryMenu(layout, event.getMouseX(), event.getMouseY())) {
+        FavoriteView hoveredFavorite = favoriteViewAt(layout, event.getMouseX(), event.getMouseY());
+        if (hoveredFavorite != null && hoveredFavorite.isRecipe()) {
+            previewFor(hoveredFavorite).renderPreview(gui, event.getMouseX(), event.getMouseY(), screen.width, screen.height);
+        } else if (!hovered.isEmpty() && !isInsideCategoryMenu(layout, event.getMouseX(), event.getMouseY())) {
             gui.renderTooltip(Minecraft.getInstance().font, tooltipFor(hovered), hovered.getTooltipImage(), hovered, event.getMouseX(), event.getMouseY());
         } else if (isHovering(event.getMouseX(), event.getMouseY(), layout.searchX, layout.searchY, layout.searchWidth, SEARCH_HEIGHT)) {
             renderSearchHelpTooltip(gui, event.getMouseX(), event.getMouseY());
         }
+        renderFavoriteFilter(gui, layout, event.getMouseX(), event.getMouseY());
     }
 
     public static void onMouseClicked(ScreenEvent.MouseButtonPressed.Pre event) {
-        if (!isOverlayEnabled() || !(event.getScreen() instanceof AbstractContainerScreen<?> screen) || !isSupportedScreen(screen)) return;
+        Screen screen = event.getScreen();
+        if (!isOverlayEnabled() || !isSupportedScreen(screen)) return;
 
         Layout layout = layout(screen);
 
@@ -142,6 +212,28 @@ public final class RecipeInventoryOverlay {
         }
 
         if (recipePanelHidden) return;
+
+        int favoriteHeaderX = layout.favoritesX;
+        if (hasFavorites() && event.getButton() == 0 && isHovering(event.getMouseX(), event.getMouseY(), favoriteHeaderX, layout.favoritesY - 50, favoriteWidth(layout), 18)) {
+            if (event.getMouseX() >= favoriteHeaderX + favoriteWidth(layout) - 14) favoriteSearchBox.setValue("");
+            searchBox.setFocused(false);
+            favoriteSearchBox.setFocused(true);
+            screen.setFocused(favoriteSearchBox);
+            favoriteSearchBox.mouseClicked(event.getMouseX(), event.getMouseY(), 0);
+            event.setCanceled(true);
+            return;
+        }
+        if (favoriteSearchBox != null) favoriteSearchBox.setFocused(false);
+        if (hasFavorites() && event.getButton() == 0 && isHovering(event.getMouseX(), event.getMouseY(), favoriteHeaderX, layout.favoritesY - 28, favoriteWidth(layout), 20)) {
+            int index = Math.min(3, (int) (event.getMouseX() - favoriteHeaderX) / layout.favoriteCellWidth);
+            favoriteFilter = FavoriteFilter.values()[index];
+            favoriteScroll = 0;
+            ConfigOptions.getInstance().favoriteFilter = favoriteFilter.name();
+            ConfigOptions.getInstance().save();
+            playClick();
+            event.setCanceled(true);
+            return;
+        }
 
         if (!query.isBlank() && isHovering(event.getMouseX(), event.getMouseY(), layout.resetX, layout.resetY, 10, 10)) {
             query = "";
@@ -221,8 +313,40 @@ public final class RecipeInventoryOverlay {
             return;
         }
 
+        if (isHovering(event.getMouseX(), event.getMouseY(), layout.wikiX + PAGE_BUTTON_SIZE + 4, layout.wikiY, PAGE_BUTTON_SIZE, PAGE_BUTTON_SIZE)) {
+            if (event.getButton() == 0 && PinnedRecipeHud.hasPinned()) {
+                PinnedRecipeHud.unpin();
+                playClick();
+            }
+            event.setCanceled(true);
+            return;
+        }
+
         ItemStack clicked = itemAt(layout, event.getMouseX(), event.getMouseY());
         if (clicked.isEmpty()) {
+            FavoriteView favorite = favoriteViewAt(layout, event.getMouseX(), event.getMouseY());
+            if (favorite != null && event.getButton() == 0 && favoriteFilter == FavoriteFilter.GLOBAL
+                    && favoriteQuery.isBlank() && !Screen.hasShiftDown() && !Screen.hasControlDown()) {
+                pressedFavorite = favorite;
+                dragScreen = screen;
+                pressX = event.getMouseX();
+                pressY = event.getMouseY();
+                draggingFavorite = false;
+                event.setCanceled(true);
+                return;
+            }
+            if (favorite != null && favorite.isRecipe()) {
+                if (handleCreativeClick(favorite.stack, event.getButton())) {
+                    event.setCanceled(true);
+                    return;
+                }
+                if (event.getButton() == 2) RecipeBookmarks.toggle(previewFor(favorite).selectedPreview());
+                else if (event.getButton() == 0) RecipeDisplayScreen.openSaved(screen, favorite.recipes);
+                else if (event.getButton() == 1) RecipeDisplayScreen.open(screen, favorite.stack, true);
+                playClick();
+                event.setCanceled(true);
+                return;
+            }
             clicked = favoriteAt(layout, event.getMouseX(), event.getMouseY());
         }
         if (!clicked.isEmpty()) {
@@ -230,9 +354,9 @@ public final class RecipeInventoryOverlay {
                 toggleFavorite(clicked);
                 saveState();
                 playClick();
-            } else if (event.getButton() == 0) {
-                if (isCreativePlayer()) {
-                    giveCreativeStack(clicked);
+            } else if (event.getButton() == 0 || event.getButton() == 1) {
+                if (!handleCreativeClick(clicked, event.getButton())) {
+                    RecipeDisplayScreen.open(screen, clicked, event.getButton() == 1);
                     playClick();
                 }
             }
@@ -241,10 +365,23 @@ public final class RecipeInventoryOverlay {
     }
 
     public static void onMouseScrolled(ScreenEvent.MouseScrolled.Pre event) {
-        if (!isOverlayEnabled() || !(event.getScreen() instanceof AbstractContainerScreen<?> screen) || !isSupportedScreen(screen)) return;
+        Screen screen = event.getScreen();
+        if (!isOverlayEnabled() || !isSupportedScreen(screen)) return;
         if (recipePanelHidden) return;
         Layout layout = layout(screen);
-        if (isInsideFavorites(layout, event.getMouseX(), event.getMouseY()) && favorites.size() > layout.favoriteRows * FAVORITE_COLUMNS) {
+        FavoriteView favorite = favoriteViewAt(layout, event.getMouseX(), event.getMouseY());
+        ItemStack hovered = itemAt(layout, event.getMouseX(), event.getMouseY());
+        if (hovered.isEmpty() && favorite != null) hovered = favorite.stack;
+        if (pressedFavorite == null && handleCreativeScroll(hovered, event.getScrollDeltaY())) {
+            event.setCanceled(true);
+            return;
+        }
+        if (favorite != null && favorite.isRecipe() && !Screen.hasShiftDown() && pressedFavorite == null) {
+            if (event.getScrollDeltaY() != 0) previewFor(favorite).scrollPreview(event.getScrollDeltaY() < 0 ? 1 : -1);
+            event.setCanceled(true);
+            return;
+        }
+        if (isInsideFavorites(layout, event.getMouseX(), event.getMouseY()) && favoriteViews().size() > layout.favoriteRows * favoriteColumns(layout)) {
             favoriteScroll = clamp(favoriteScroll + (event.getScrollDeltaY() < 0 ? 1 : -1), 0, maxFavoriteScroll(layout));
             event.setCanceled(true);
             return;
@@ -257,15 +394,50 @@ public final class RecipeInventoryOverlay {
     }
 
     public static void onKeyPressed(ScreenEvent.KeyPressed.Pre event) {
-        if (!isSearchFocusedFor(event.getScreen())) return;
-        if (searchBox.keyPressed(event.getKeyCode(), event.getScanCode(), event.getModifiers())) {
+        if (event.getKeyCode() == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE) {
+            pressedFavorite = null;
+            draggingFavorite = false;
+            dragScreen = null;
+        }
+        if (!isSearchFocusedFor(event.getScreen())) {
+            if (!isOverlayEnabled() || recipePanelHidden || !isSupportedScreen(event.getScreen())) return;
+            var mc = Minecraft.getInstance();
+            double mx = mc.mouseHandler.xpos() * event.getScreen().width / mc.getWindow().getScreenWidth();
+            double my = mc.mouseHandler.ypos() * event.getScreen().height / mc.getWindow().getScreenHeight();
+            Layout layout = layout(event.getScreen());
+            FavoriteView favorite = favoriteViewAt(layout, mx, my);
+            var key = net.opal.irisv.client.ClientKeyBindings.PIN;
+            if (favorite != null && favorite.isRecipe() && key.matches(event.getKeyCode(), event.getScanCode())) {
+                PinnedRecipeHud.toggle(previewFor(favorite).selectedPreview());
+                event.setCanceled(true);
+                return;
+            }
+            ItemStack stack = itemAt(layout, mx, my);
+            if (stack.isEmpty() && favorite != null) stack = favorite.stack;
+            if (!stack.isEmpty() && handleRecipeKey(event.getScreen(), stack, event.getKeyCode(), event.getScanCode())) event.setCanceled(true);
+            return;
+        }
+        if (event.getKeyCode() == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE) return;
+        EditBox focused = favoriteSearchBox != null && favoriteSearchBox.isFocused() ? favoriteSearchBox : searchBox;
+        if (focused.keyPressed(event.getKeyCode(), event.getScanCode(), event.getModifiers())) {
             event.setCanceled(true);
         }
     }
 
+    static boolean handleRecipeKey(Screen screen, ItemStack stack, int key, int scan) {
+        if (net.opal.irisv.client.ClientKeyBindings.RECIPES.matches(key, scan)) {
+            RecipeDisplayScreen.open(screen, stack, false); return true;
+        }
+        if (net.opal.irisv.client.ClientKeyBindings.USES.matches(key, scan)) {
+            RecipeDisplayScreen.open(screen, stack, true); return true;
+        }
+        return false;
+    }
+
     public static void onCharacterTyped(ScreenEvent.CharacterTyped.Pre event) {
         if (!isSearchFocusedFor(event.getScreen())) return;
-        if (searchBox.charTyped(event.getCodePoint(), event.getModifiers())) {
+        EditBox focused = favoriteSearchBox != null && favoriteSearchBox.isFocused() ? favoriteSearchBox : searchBox;
+        if (focused.charTyped(event.getCodePoint(), event.getModifiers())) {
             event.setCanceled(true);
         }
     }
@@ -276,17 +448,17 @@ public final class RecipeInventoryOverlay {
         }
     }
 
-    private static void renderPagination(GuiGraphics gui, Layout layout, int totalPages) {
+    private static void renderPagination(GuiGraphics gui, Layout layout, int totalPages, int mouseX, int mouseY) {
         Minecraft mc = Minecraft.getInstance();
         OverlayPalette palette = OverlayPalette.current();
         String pageText = (page + 1) + "/" + totalPages;
         gui.fill(layout.prevX, layout.pageButtonY, layout.nextX + PAGE_BUTTON_SIZE, layout.pageButtonY + PAGE_BUTTON_SIZE, palette.pageBackground);
-        renderButtonBox(gui, layout.prevX, layout.pageButtonY, PAGE_BUTTON_SIZE, PAGE_BUTTON_SIZE, palette);
-        renderButtonBox(gui, layout.nextX, layout.pageButtonY, PAGE_BUTTON_SIZE, PAGE_BUTTON_SIZE, palette);
+        RecipeNavigationButton.draw(gui, layout.prevX, layout.pageButtonY, PAGE_BUTTON_SIZE, false,
+                isHovering(mouseX, mouseY, layout.prevX, layout.pageButtonY, PAGE_BUTTON_SIZE, PAGE_BUTTON_SIZE), totalPages > 1);
+        RecipeNavigationButton.draw(gui, layout.nextX, layout.pageButtonY, PAGE_BUTTON_SIZE, true,
+                isHovering(mouseX, mouseY, layout.nextX, layout.pageButtonY, PAGE_BUTTON_SIZE, PAGE_BUTTON_SIZE), totalPages > 1);
         gui.fill(layout.pageBoxLeft, layout.pageButtonY, layout.pageBoxRight, layout.pageButtonY + PAGE_BUTTON_SIZE, palette.pageBackground);
         int textY = layout.pageButtonY + (PAGE_BUTTON_SIZE - mc.font.lineHeight) / 2 + 1;
-        gui.blit(PAGE_LEFT_ICON, layout.prevX + 3, layout.pageButtonY + 3, 0.0F, 0.0F, ITEM_SIZE, ITEM_SIZE, ITEM_SIZE, ITEM_SIZE);
-        gui.blit(PAGE_RIGHT_ICON, layout.nextX + 3, layout.pageButtonY + 3, 0.0F, 0.0F, ITEM_SIZE, ITEM_SIZE, ITEM_SIZE, ITEM_SIZE);
         drawCenteredText(gui, mc, pageText, (layout.pageBoxLeft + layout.pageBoxRight) / 2, textY, palette.text);
     }
 
@@ -294,10 +466,28 @@ public final class RecipeInventoryOverlay {
         gui.drawString(mc.font, text, centerX - mc.font.width(text) / 2, y, color, false);
     }
 
+    private static void renderInventorySearch(GuiGraphics gui, Screen screen) {
+        Minecraft mc = Minecraft.getInstance();
+        if (!ConfigOptions.getInstance().inventorySearchHighlight || !highlightSearchMode || query.isBlank()
+                || mc.player == null || !(screen instanceof AbstractContainerScreen<?> container)) return;
+        gui.pose().pushPose();
+        gui.pose().translate(0, 0, 100);
+        for (var slot : container.getMenu().slots) {
+            if (slot.container != mc.player.getInventory() || !slot.isActive() || !slot.hasItem()
+                    || slot.x < 0 || slot.y < 0 || !RecipeSearch.matchesAnyToken(slot.getItem(), query)) continue;
+            int x = container.getGuiLeft() + slot.x;
+            int y = container.getGuiTop() + slot.y;
+            if (x < 0 || y < 0 || x + ITEM_SIZE > screen.width || y + ITEM_SIZE > screen.height) continue;
+            gui.fill(x, y, x + ITEM_SIZE, y + ITEM_SIZE, 0x3028E8FF);
+            gui.renderOutline(x - 1, y - 1, ITEM_SIZE + 2, ITEM_SIZE + 2, 0xFF28E8FF);
+        }
+        gui.pose().popPose();
+    }
+
     private static void renderCategoryButton(GuiGraphics gui, Layout layout, int mouseX, int mouseY) {
         Minecraft mc = Minecraft.getInstance();
         OverlayPalette palette = OverlayPalette.current();
-        renderButtonBox(gui, layout.toolX, layout.searchY, TOOL_BUTTON_WIDTH, SEARCH_HEIGHT, palette);
+        renderButtonBox(gui, layout.toolX, layout.searchY, TOOL_BUTTON_WIDTH, SEARCH_HEIGHT, isHovering(mouseX, mouseY, layout.toolX, layout.searchY, TOOL_BUTTON_WIDTH, SEARCH_HEIGHT));
         if (categoryMenuOpen || activeCategory != RecipeCategory.ALL) {
             renderOutline(gui, layout.toolX, layout.searchY, TOOL_BUTTON_WIDTH, SEARCH_HEIGHT, palette.searchHighlight);
         }
@@ -317,17 +507,33 @@ public final class RecipeInventoryOverlay {
     private static void renderOptionsButton(GuiGraphics gui, Layout layout, int mouseX, int mouseY) {
         Minecraft mc = Minecraft.getInstance();
         OverlayPalette palette = OverlayPalette.current();
-        renderButtonBox(gui, layout.optionsX, layout.optionsY, PAGE_BUTTON_SIZE, PAGE_BUTTON_SIZE, palette);
+        renderButtonBox(gui, layout.optionsX, layout.optionsY, PAGE_BUTTON_SIZE, PAGE_BUTTON_SIZE, isHovering(mouseX, mouseY, layout.optionsX, layout.optionsY, PAGE_BUTTON_SIZE, PAGE_BUTTON_SIZE));
         gui.blit(OPTIONS_ICON, layout.optionsX + 3, layout.optionsY + 3, 0.0F, 0.0F, ITEM_SIZE, ITEM_SIZE, ITEM_SIZE, ITEM_SIZE);
         if (isHovering(mouseX, mouseY, layout.optionsX, layout.optionsY, PAGE_BUTTON_SIZE, PAGE_BUTTON_SIZE)) {
             gui.renderTooltip(mc.font, Component.literal("IrisV"), mouseX, mouseY);
         }
     }
 
+    private static void renderUnpinButton(GuiGraphics gui, Layout layout, int mouseX, int mouseY) {
+        int x = layout.wikiX + PAGE_BUTTON_SIZE + 4;
+        int y = layout.wikiY;
+        boolean enabled = PinnedRecipeHud.hasPinned();
+        boolean hovered = isHovering(mouseX, mouseY, x, y, PAGE_BUTTON_SIZE, PAGE_BUTTON_SIZE);
+        RecipeNavigationButton.background(gui, x, y, PAGE_BUTTON_SIZE, PAGE_BUTTON_SIZE, hovered, enabled);
+        gui.renderFakeItem(new ItemStack(net.minecraft.world.item.Items.ITEM_FRAME), x + 3, y + 3);
+        gui.pose().pushPose();
+        gui.pose().translate(0, 0, 300);
+        gui.drawString(Minecraft.getInstance().font, "x", x + 13, y + 11, enabled ? 0xFFFF6666 : 0xFF888888, true);
+        if (!enabled) gui.fill(x + 2, y + 2, x + PAGE_BUTTON_SIZE - 2, y + PAGE_BUTTON_SIZE - 2, 0x66000000);
+        gui.pose().popPose();
+        if (hovered) gui.renderTooltip(Minecraft.getInstance().font,
+                Component.translatable(enabled ? "recip.irisv.unpin" : "recip.irisv.unpin.empty"), mouseX, mouseY);
+    }
+
     private static void renderWikiButton(GuiGraphics gui, Layout layout, int mouseX, int mouseY) {
         Minecraft mc = Minecraft.getInstance();
         OverlayPalette palette = OverlayPalette.current();
-        renderButtonBox(gui, layout.wikiX, layout.wikiY, PAGE_BUTTON_SIZE, PAGE_BUTTON_SIZE, palette);
+        renderButtonBox(gui, layout.wikiX, layout.wikiY, PAGE_BUTTON_SIZE, PAGE_BUTTON_SIZE, isHovering(mouseX, mouseY, layout.wikiX, layout.wikiY, PAGE_BUTTON_SIZE, PAGE_BUTTON_SIZE));
         gui.blit(WIKI_ICON, layout.wikiX + 3, layout.wikiY + 3, 0.0F, 0.0F, ITEM_SIZE, ITEM_SIZE, ITEM_SIZE, ITEM_SIZE);
         if (isHovering(mouseX, mouseY, layout.wikiX, layout.wikiY, PAGE_BUTTON_SIZE, PAGE_BUTTON_SIZE)) {
             gui.renderTooltip(mc.font, Component.translatable("recip.irisv.wiki"), mouseX, mouseY);
@@ -337,7 +543,7 @@ public final class RecipeInventoryOverlay {
     private static void renderVisibilityButton(GuiGraphics gui, Layout layout, int mouseX, int mouseY) {
         Minecraft mc = Minecraft.getInstance();
         OverlayPalette palette = OverlayPalette.current();
-        renderButtonBox(gui, layout.visibilityX, layout.visibilityY, PAGE_BUTTON_SIZE, PAGE_BUTTON_SIZE, palette);
+        renderButtonBox(gui, layout.visibilityX, layout.visibilityY, PAGE_BUTTON_SIZE, PAGE_BUTTON_SIZE, isHovering(mouseX, mouseY, layout.visibilityX, layout.visibilityY, PAGE_BUTTON_SIZE, PAGE_BUTTON_SIZE));
         ResourceLocation icon = recipePanelHidden ? EYE_CLOSED_ICON : EYE_OPEN_ICON;
         gui.blit(icon, layout.visibilityX + 3, layout.visibilityY + 3, 0.0F, 0.0F, ITEM_SIZE, ITEM_SIZE, ITEM_SIZE, ITEM_SIZE);
         if (isHovering(mouseX, mouseY, layout.visibilityX, layout.visibilityY, PAGE_BUTTON_SIZE, PAGE_BUTTON_SIZE)) {
@@ -346,16 +552,26 @@ public final class RecipeInventoryOverlay {
     }
 
     private static void renderFavorites(GuiGraphics gui, Layout layout, int mouseX, int mouseY) {
-        if (favorites.isEmpty()) return;
+        List<FavoriteView> visibleFavorites = favoriteViews();
+        if (visibleFavorites.isEmpty()) return;
         favoriteScroll = clamp(favoriteScroll, 0, maxFavoriteScroll(layout));
-        int start = favoriteScroll * FAVORITE_COLUMNS;
-        int visible = Math.min(favorites.size() - start, layout.favoriteRows * FAVORITE_COLUMNS);
+        int columns = favoriteColumns(layout);
+        int start = favoriteScroll * columns;
+        int visible = Math.min(visibleFavorites.size() - start, layout.favoriteRows * columns);
         for (int index = 0; index < visible; index++) {
-            int x = layout.favoritesX + (index % FAVORITE_COLUMNS) * CELL_SIZE;
-            int y = layout.favoritesY + (index / FAVORITE_COLUMNS) * CELL_SIZE;
-            ItemStack stack = favorites.get(start + index);
+            int x = favoriteItemX(layout, index % columns);
+            int y = layout.favoritesY + (index / columns) * CELL_SIZE;
+            FavoriteView view = visibleFavorites.get(start + index);
+            ItemStack stack = view.stack;
             gui.renderFakeItem(stack, x, y);
             renderFavoriteStar(gui, x, y);
+            if (view.isRecipe()) {
+                gui.pose().pushPose();
+                gui.pose().translate(x + 9, y + 9, 400);
+                gui.pose().scale(0.5F, 0.5F, 1);
+                gui.renderFakeItem(RecipeDisplayScreen.workstation(view.recipes.getFirst()), 0, 0);
+                gui.pose().popPose();
+            }
             if (isHovering(mouseX, mouseY, x, y, CELL_SIZE, CELL_SIZE)) {
                 renderOutline(gui, x - 1, y - 1, ITEM_SIZE + 2, ITEM_SIZE + 2, 0xCCFFFFFF);
             }
@@ -363,13 +579,151 @@ public final class RecipeInventoryOverlay {
         renderFavoriteScrollbar(gui, layout);
     }
 
+    private static boolean hasFavorites() {
+        return !favorites.isEmpty() || !RecipeBookmarks.entries().isEmpty();
+    }
+
+    private static List<FavoriteView> favoriteViews() {
+        List<FavoriteView> views = new ArrayList<>();
+        if (favoriteFilter == FavoriteFilter.RECIPE || favoriteFilter == FavoriteFilter.GLOBAL) {
+            var groups = new java.util.LinkedHashMap<String, List<RecipeBookmarks.Entry>>();
+            for (var entry : RecipeBookmarks.entries()) groups.computeIfAbsent(stackKey(entry.output()), key -> new ArrayList<>()).add(entry);
+            for (var group : groups.values()) views.add(new FavoriteView(group.getFirst().output(), List.copyOf(group)));
+        }
+        if (favoriteFilter != FavoriteFilter.RECIPE) for (ItemStack stack : favorites) {
+            boolean block = stack.getItem() instanceof net.minecraft.world.item.BlockItem;
+            if (favoriteFilter == FavoriteFilter.BLOCK && !block || favoriteFilter == FavoriteFilter.ITEM && block) continue;
+            views.add(new FavoriteView(stack, List.of()));
+        }
+        List<String> order = ConfigOptions.getInstance().favoriteOrder;
+        views.sort(java.util.Comparator.comparingInt(view -> {
+            int rank = order.indexOf(favoriteKey(view));
+            return rank < 0 ? Integer.MAX_VALUE : rank;
+        }));
+        if (!favoriteQuery.isBlank()) views.removeIf(view -> !RecipeSearch.matchesAnyToken(view.stack, favoriteQuery));
+        return views;
+    }
+
+    private static String favoriteKey(FavoriteView view) {
+        return (view.isRecipe() ? "recipe:" : "item:") + stackKey(view.stack);
+    }
+
+    private static void updateFavoriteDrag(double x, double y) {
+        if (Math.hypot(x - pressX, y - pressY) >= 4) draggingFavorite = true;
+    }
+
+    private static int favoriteInsertion(Layout layout, double x, double y) {
+        if (!isHovering(x, y, layout.favoritesX, layout.favoritesY, favoriteWidth(layout), layout.favoriteRows * CELL_SIZE)) return -1;
+        int columns = favoriteColumns(layout);
+        int row = (int) (y - layout.favoritesY) / CELL_SIZE;
+        int boundary = (int) Math.round((x - layout.favoritesX) * columns / favoriteWidth(layout));
+        return Math.min(favoriteViews().size(), (favoriteScroll + row) * columns + boundary);
+    }
+
+    public static void onMouseReleased(ScreenEvent.MouseButtonReleased.Pre event) {
+        if (pressedFavorite == null || event.getButton() != 0) return;
+        FavoriteView pressed = pressedFavorite;
+        updateFavoriteDrag(event.getMouseX(), event.getMouseY());
+        boolean moved = draggingFavorite;
+        pressedFavorite = null;
+        draggingFavorite = false;
+        event.setCanceled(true);
+        if (event.getScreen() != dragScreen || recipePanelHidden || !isOverlayEnabled()) return;
+        dragScreen = null;
+        if (!moved) {
+            if (pressed.isRecipe()) RecipeDisplayScreen.openSaved(event.getScreen(), pressed.recipes);
+            else RecipeDisplayScreen.open(event.getScreen(), pressed.stack, false);
+            playClick();
+            return;
+        }
+        if (favoriteFilter != FavoriteFilter.GLOBAL || !favoriteQuery.isBlank()) return;
+        int insertion = favoriteInsertion(layout(event.getScreen()), event.getMouseX(), event.getMouseY());
+        if (insertion < 0) return;
+        List<FavoriteView> views = favoriteViews();
+        int from = -1;
+        for (int i = 0; i < views.size(); i++) if (favoriteKey(views.get(i)).equals(favoriteKey(pressed))) { from = i; break; }
+        if (from < 0) return;
+        FavoriteView movedView = views.remove(from);
+        views.add(insertion > from ? insertion - 1 : insertion, movedView);
+        ConfigOptions config = ConfigOptions.getInstance();
+        List<String> order = new ArrayList<>(views.stream().map(RecipeInventoryOverlay::favoriteKey).toList());
+        // Preserve ordering keys for unavailable mod entries without deleting their bookmarks.
+        for (String key : config.favoriteOrder) if (!order.contains(key)) order.add(key);
+        config.favoriteOrder = order;
+        config.save();
+        playClick();
+    }
+
+    private static RecipeDisplayScreen previewFor(FavoriteView favorite) {
+        if (favoritePreview == null || !previewSource.equals(favorite.recipes)) {
+            favoritePreview = RecipeDisplayScreen.preview(favorite.recipes);
+            previewSource = favorite.recipes;
+        }
+        return favoritePreview;
+    }
+
+    private static void renderFavoriteFilter(GuiGraphics gui, Layout layout, int mouseX, int mouseY) {
+        if (!hasFavorites()) return;
+        var font = Minecraft.getInstance().font;
+        int x = layout.favoritesX;
+        int y = layout.favoritesY - 50;
+        int width = favoriteWidth(layout);
+        gui.pose().pushPose();
+        gui.pose().translate(0, 0, 650);
+        gui.fill(x, y, x + width, y + 18, 0xE5000000);
+        gui.renderOutline(x, y, width, 18, favoriteSearchBox != null && favoriteSearchBox.isFocused() ? 0xFFFFFFFF : 0xFFA0A0A0);
+        if (favoriteSearchBox != null) {
+            favoriteSearchBox.setX(x + 4);
+            favoriteSearchBox.setY(y + 5);
+            favoriteSearchBox.setWidth(width - 20);
+            favoriteSearchBox.visible = true;
+            favoriteSearchBox.render(gui, mouseX, mouseY, 0);
+        }
+        if (!favoriteQuery.isEmpty()) gui.drawString(font, "x", x + width - 11, y + 5, 0xFFCCCCCC, false);
+        var icons = new net.minecraft.world.item.Item[] {
+                net.minecraft.world.item.Items.CRAFTING_TABLE, net.minecraft.world.item.Items.GRASS_BLOCK,
+                net.minecraft.world.item.Items.IRON_INGOT, net.minecraft.world.item.Items.COMPASS };
+        for (int i = 0; i < 4; i++) {
+            int buttonX = x + i * layout.favoriteCellWidth;
+            int buttonY = y + 22;
+            boolean active = FavoriteFilter.values()[i] == favoriteFilter;
+            int buttonWidth = layout.favoriteCellWidth - 1;
+            boolean hovered = isHovering(mouseX, mouseY, buttonX, buttonY, buttonWidth, 20);
+            RecipeNavigationButton.background(gui, buttonX, buttonY, buttonWidth, 20, hovered, true);
+            if (active) gui.renderOutline(buttonX, buttonY, buttonWidth, 20, 0xFFFFFFFF);
+            gui.renderFakeItem(new ItemStack(icons[i]), buttonX + (buttonWidth - 16) / 2, buttonY + 2);
+        }
+        gui.fill(x, y + 46, x + width, y + 47, 0xAA000000);
+        gui.fill(x, y + 47, x + width, y + 48, 0xFF888888);
+        for (int i = 0; i < 4; i++) if (isHovering(mouseX, mouseY, x + i * layout.favoriteCellWidth, y + 22, layout.favoriteCellWidth - 1, 20))
+            gui.renderTooltip(font, Component.literal(FavoriteFilter.values()[i].name()), mouseX, mouseY);
+        if (isHovering(mouseX, mouseY, x, y, width, 18) && (favoriteSearchBox == null || !favoriteSearchBox.isFocused()))
+            gui.renderTooltip(font, Component.translatable("recip.irisv.favorites.search"), mouseX, mouseY);
+        gui.pose().popPose();
+    }
+
+    private static int favoriteWidth(Layout layout) {
+        return FAVORITE_COLUMNS * layout.favoriteCellWidth;
+    }
+
+    private static int favoriteColumns(Layout layout) {
+        return Math.max(FAVORITE_COLUMNS, favoriteWidth(layout) / 20);
+    }
+
+    private static int favoriteItemX(Layout layout, int column) {
+        int columns = favoriteColumns(layout);
+        int start = column * favoriteWidth(layout) / columns;
+        int end = (column + 1) * favoriteWidth(layout) / columns;
+        return layout.favoritesX + start + (end - start - ITEM_SIZE) / 2;
+    }
+
     private static void renderFavoriteScrollbar(GuiGraphics gui, Layout layout) {
-        if (favorites.size() <= layout.favoriteRows * FAVORITE_COLUMNS) return;
+        if (favoriteViews().size() <= layout.favoriteRows * favoriteColumns(layout)) return;
         OverlayPalette palette = OverlayPalette.current();
         int x = layout.favoritesX - 6;
         int y = layout.favoritesY;
         int height = layout.favoriteRows * CELL_SIZE - 2;
-        int totalRows = favoriteTotalRows();
+        int totalRows = favoriteTotalRows(layout);
         int thumbHeight = Math.max(8, height * layout.favoriteRows / totalRows);
         int thumbTravel = Math.max(1, height - thumbHeight);
         int thumbY = y + thumbTravel * favoriteScroll / maxFavoriteScroll(layout);
@@ -379,14 +733,7 @@ public final class RecipeInventoryOverlay {
 
     private static void renderSearchHelpTooltip(GuiGraphics gui, int mouseX, int mouseY) {
         Minecraft mc = Minecraft.getInstance();
-        List<FormattedCharSequence> lines = List.of(
-                Component.literal("Recherche").getVisualOrderText(),
-                Component.literal("@mod  namespace").getVisualOrderText(),
-                Component.literal("#id  identifiant complet").getVisualOrderText(),
-                Component.literal("$path  chemin de l'item").getVisualOrderText(),
-                Component.literal("Double-clic: mode surbrillance").withStyle(ChatFormatting.YELLOW).getVisualOrderText()
-        );
-        gui.renderTooltip(mc.font, lines, mouseX, mouseY);
+        gui.renderTooltip(mc.font, Component.translatable("recip.irisv.search"), mouseX, mouseY);
     }
 
     private static void renderCategoryMenu(GuiGraphics gui, Layout layout, int mouseX, int mouseY) {
@@ -428,14 +775,8 @@ public final class RecipeInventoryOverlay {
         gui.fill(layout.searchX + 1, layout.searchY + 1, layout.searchX + layout.searchWidth - 1, layout.searchY + SEARCH_HEIGHT - 1, palette.searchBackground);
     }
 
-    private static void renderButtonBox(GuiGraphics gui, int x, int y, int width, int height, OverlayPalette palette) {
-        gui.fill(x, y, x + width, y + height, palette.buttonShadow);
-        gui.fill(x + 1, y + 1, x + width - 1, y + height - 1, palette.buttonBase);
-        gui.fill(x, y, x + width, y + 1, palette.buttonLight);
-        gui.fill(x, y, x + 1, y + height, palette.buttonLight);
-        gui.fill(x, y + height - 1, x + width, y + height, palette.buttonDark);
-        gui.fill(x + width - 1, y, x + width, y + height, palette.buttonDark);
-        gui.fill(x + 3, y + 3, x + width - 3, y + height - 3, palette.buttonInner);
+    private static void renderButtonBox(GuiGraphics gui, int x, int y, int width, int height, boolean hovered) {
+        RecipeNavigationButton.background(gui, x, y, width, height, hovered, true);
     }
 
     private static void renderToolIcon(GuiGraphics gui, int x, int y, OverlayPalette palette) {
@@ -561,6 +902,8 @@ public final class RecipeInventoryOverlay {
     private static void loadState() {
         if (stateLoaded) return;
         ConfigOptions config = ConfigOptions.getInstance();
+        try { favoriteFilter = FavoriteFilter.valueOf(config.favoriteFilter); }
+        catch (IllegalArgumentException | NullPointerException ignored) { favoriteFilter = FavoriteFilter.GLOBAL; }
         highlightSearchMode = config.recipeHighlightSearchMode;
         page = Math.max(0, config.recipePage);
         try {
@@ -614,16 +957,24 @@ public final class RecipeInventoryOverlay {
     }
 
     private static ItemStack favoriteAt(Layout layout, double mouseX, double mouseY) {
-        int start = favoriteScroll * FAVORITE_COLUMNS;
-        int visible = Math.min(favorites.size() - start, layout.favoriteRows * FAVORITE_COLUMNS);
+        FavoriteView view = favoriteViewAt(layout, mouseX, mouseY);
+        return view == null ? ItemStack.EMPTY : view.stack;
+    }
+
+    private static FavoriteView favoriteViewAt(Layout layout, double mouseX, double mouseY) {
+        List<FavoriteView> visibleFavorites = favoriteViews();
+        favoriteScroll = clamp(favoriteScroll, 0, maxFavoriteScroll(layout));
+        int columns = favoriteColumns(layout);
+        int start = favoriteScroll * columns;
+        int visible = Math.min(visibleFavorites.size() - start, layout.favoriteRows * columns);
         for (int i = 0; i < visible; i++) {
-            int x = layout.favoritesX + (i % FAVORITE_COLUMNS) * CELL_SIZE;
-            int y = layout.favoritesY + (i / FAVORITE_COLUMNS) * CELL_SIZE;
+            int x = favoriteItemX(layout, i % columns);
+            int y = layout.favoritesY + (i / columns) * CELL_SIZE;
             if (isHovering(mouseX, mouseY, x, y, CELL_SIZE, CELL_SIZE)) {
-                return favorites.get(start + i);
+                return visibleFavorites.get(start + i);
             }
         }
-        return ItemStack.EMPTY;
+        return null;
     }
 
     private static RecipeCategory categoryAt(Layout layout, double mouseX, double mouseY) {
@@ -648,18 +999,19 @@ public final class RecipeInventoryOverlay {
     }
 
     private static boolean isInsideFavorites(Layout layout, double mouseX, double mouseY) {
-        if (favorites.isEmpty()) return false;
-        int x = favorites.size() > layout.favoriteRows * FAVORITE_COLUMNS ? layout.favoritesX - 8 : layout.favoritesX;
-        int width = FAVORITE_COLUMNS * CELL_SIZE + (favorites.size() > layout.favoriteRows * FAVORITE_COLUMNS ? 8 : 0);
+        if (favoriteViews().isEmpty()) return false;
+        int x = favoriteViews().size() > layout.favoriteRows * favoriteColumns(layout) ? layout.favoritesX - 8 : layout.favoritesX;
+        int width = favoriteWidth(layout) + (favoriteViews().size() > layout.favoriteRows * favoriteColumns(layout) ? 8 : 0);
         return isHovering(mouseX, mouseY, x, layout.favoritesY, width, layout.favoriteRows * CELL_SIZE);
     }
 
     private static int maxFavoriteScroll(Layout layout) {
-        return Math.max(0, favoriteTotalRows() - layout.favoriteRows);
+        return Math.max(0, favoriteTotalRows(layout) - layout.favoriteRows);
     }
 
-    private static int favoriteTotalRows() {
-        return Math.max(1, (favorites.size() + FAVORITE_COLUMNS - 1) / FAVORITE_COLUMNS);
+    private static int favoriteTotalRows(Layout layout) {
+        int columns = favoriteColumns(layout);
+        return Math.max(1, (favoriteViews().size() + columns - 1) / columns);
     }
 
     private static int clamp(int value, int min, int max) {
@@ -692,7 +1044,14 @@ public final class RecipeInventoryOverlay {
     }
 
     private static boolean isSupportedScreen(Screen screen) {
-        return screen instanceof InventoryScreen || screen instanceof CreativeModeInventoryScreen;
+        if (screen instanceof RecipeDisplayScreen browser) return browser.originScreen() == null || isSupportedScreen(browser.originScreen());
+        var integration = net.opal.irisv.api.compat.IrisVCompatibility.find(screen);
+        if (integration != null) return !ConfigOptions.getInstance().disabledRecipeHudCategories.contains(
+                net.opal.irisv.api.compat.IrisVCompatibility.settingKey(integration));
+        boolean supported = screen instanceof InventoryScreen || screen instanceof CreativeModeInventoryScreen
+                || screen instanceof AbstractContainerScreen<?> container && container.getXSize() == 176
+                && screen.getClass().getPackageName().equals("net.minecraft.client.gui.screens.inventory");
+        return supported && !ConfigOptions.getInstance().disabledRecipeHudCategories.contains(RecipeHudCategory.of(screen).key());
     }
 
     private static boolean isCreativePlayer() {
@@ -700,19 +1059,33 @@ public final class RecipeInventoryOverlay {
         return mc.player != null && mc.player.isCreative();
     }
 
-    private static boolean isSearchFocusedFor(Screen screen) {
+    static boolean isSearchFocusedFor(Screen screen) {
         return isOverlayEnabled()
-                && screen instanceof AbstractContainerScreen<?>
+                && !recipePanelHidden
                 && isSupportedScreen(screen)
                 && searchBox != null
-                && searchBox.isFocused();
+                && (searchBox.isFocused() || favoriteSearchBox != null && favoriteSearchBox.isFocused());
     }
 
-    private static void giveCreativeStack(ItemStack stack) {
+    static boolean handleCreativeClick(ItemStack stack, int button) {
+        if (stack.isEmpty() || !isCreativePlayer() || (button != 0 && button != 1)
+                || (!Screen.hasShiftDown() && !Screen.hasControlDown())) return false;
+        giveCreativeStack(stack, Screen.hasShiftDown() ? stack.getMaxStackSize() : 1);
+        playClick();
+        return true;
+    }
+
+    static boolean handleCreativeScroll(ItemStack stack, double delta) {
+        if (stack.isEmpty() || !isCreativePlayer() || !Screen.hasControlDown()) return false;
+        if (delta > 0) giveCreativeStack(stack, 1);
+        return true;
+    }
+
+    private static void giveCreativeStack(ItemStack stack, int count) {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null || mc.gameMode == null) return;
+        if (mc.player == null || mc.gameMode == null || !mc.player.isCreative()) return;
         ItemStack remaining = stack.copy();
-        remaining.setCount(Screen.hasShiftDown() ? remaining.getMaxStackSize() : 1);
+        remaining.setCount(count);
 
         while (!remaining.isEmpty()) {
             int inventorySlot = findCreativeTargetSlot(remaining);
@@ -760,14 +1133,18 @@ public final class RecipeInventoryOverlay {
         return inventorySlot < 9 ? 36 + inventorySlot : inventorySlot;
     }
 
-    private static Layout layout(AbstractContainerScreen<?> screen) {
+    private static Layout layout(Screen screen) {
         Minecraft mc = Minecraft.getInstance();
         double guiScale = mc.getWindow().getGuiScale();
-        int inventoryRight = screen.getGuiLeft() + screen.getXSize();
+        int inventoryRight = screen instanceof AbstractContainerScreen<?> container
+                ? container.getGuiLeft() + container.getXSize() : (screen.width + 176) / 2;
         int rightEdge = screen.width - 14;
         int leftBound = inventoryRight + 42;
         if (rightEdge - leftBound < 96) {
             leftBound = inventoryRight + 8;
+        }
+        if (screen instanceof RecipeDisplayScreen) {
+            leftBound = Math.min(leftBound, rightEdge - Math.max(80, Math.min(162, screen.width / 4)));
         }
         int availableWidth = Math.max(72, rightEdge - leftBound);
         int columnsByScale = Math.max(1, (int) Math.floor(9 * (3.0D / guiScale)));
@@ -814,8 +1191,11 @@ public final class RecipeInventoryOverlay {
         int wikiY = optionsY;
         int resetX = searchX + searchWidth - 11;
         int resetY = searchY + 6;
-        int favoritesX = optionsX;
-        int favoritesY = Math.max(8, gridY);
+        int favoritesX = optionsX + 6;
+        int inventoryLeft = screen instanceof AbstractContainerScreen<?> container ? container.getGuiLeft() : (screen.width - 176) / 2;
+        int favoriteCellWidth = screen instanceof RecipeDisplayScreen ? 20
+                : Math.max(20, Math.min(panelWidth, inventoryLeft - favoritesX - 8) / FAVORITE_COLUMNS);
+        int favoritesY = Math.max(8, gridY) + 50;
         int favoriteRows = Math.max(1, (optionsY - favoritesY - 6) / CELL_SIZE);
 
         int prevX = gridX;
@@ -823,11 +1203,20 @@ public final class RecipeInventoryOverlay {
         int pageBoxLeft = prevX + PAGE_BUTTON_SIZE;
         int pageBoxRight = nextX;
 
-        return new Layout(panelX, panelY, panelWidth, panelHeight, columns, rows, columns * rows, gridX, gridY, searchX, searchY, searchWidth, resetX, resetY, categoryX, categoryWidth, toolX, visibilityX, visibilityY, optionsX, optionsY, wikiX, wikiY, favoritesX, favoritesY, favoriteRows, prevX, nextX, pageButtonY, pageBoxLeft, pageBoxRight);
+        return new Layout(panelX, panelY, panelWidth, panelHeight, columns, rows, columns * rows, gridX, gridY, searchX, searchY, searchWidth, resetX, resetY, categoryX, categoryWidth, toolX, visibilityX, visibilityY, optionsX, optionsY, wikiX, wikiY, favoritesX, favoritesY, favoriteRows, prevX, nextX, pageButtonY, pageBoxLeft, pageBoxRight, favoriteCellWidth);
     }
 
     private static Layout layoutFallback() {
-        return new Layout(0, 0, 200, 200, 9, 10, 90, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+        return new Layout(0, 0, 200, 200, 9, 10, 90, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20);
+    }
+
+    static int recipeAreaLeft(Screen screen) {
+        Layout layout = layout(screen);
+        return layout.favoritesX + favoriteWidth(layout) + 12;
+    }
+
+    static int recipeAreaRight(Screen screen) {
+        return layout(screen).panelX - 8;
     }
 
     private static int totalPages(Layout layout) {
@@ -873,7 +1262,8 @@ public final class RecipeInventoryOverlay {
             int nextX,
             int pageButtonY,
             int pageBoxLeft,
-            int pageBoxRight
+            int pageBoxRight,
+            int favoriteCellWidth
     ) {}
 
     private record OverlayPalette(

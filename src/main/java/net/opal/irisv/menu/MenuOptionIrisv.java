@@ -55,6 +55,11 @@ public class MenuOptionIrisv extends Screen {
             if (this.minecraft != null) this.minecraft.setScreen(new ProviderOptionsMenu(this));
         }).tooltip(tooltip("menu.irisv.tooltip.providers")).pos(layout.left, layout.generalProviderButtonY).size(layout.width, BUTTON_HEIGHT).build(), layout.left, layout.generalProviderButtonY, layout.width);
 
+        int supportY = layout.generalProviderButtonY + layout.rowStep;
+        addContentWidget(Button.builder(Component.translatable("irisv.support.title"), b ->
+                this.minecraft.setScreen(new IrisVSupportScreen(this)))
+                .bounds(layout.left, supportY, layout.width, BUTTON_HEIGHT).build(), layout.left, supportY, layout.width);
+
         addContentWidget(Button.builder(getOverlayButtonText(config.enableBlockTooltipOverlay), b -> {
             config.enableBlockTooltipOverlay = !config.enableBlockTooltipOverlay;
             b.setMessage(getOverlayButtonText(config.enableBlockTooltipOverlay));
@@ -231,7 +236,7 @@ public class MenuOptionIrisv extends Screen {
         int generalTitleY = CONTENT_TOP;
         int generalButtonY = generalTitleY + 15;
         int generalProviderButtonY = generalButtonY + rowStep;
-        int tooltipsTitleY = generalProviderButtonY + BUTTON_HEIGHT + sectionGap;
+        int tooltipsTitleY = generalProviderButtonY + rowStep + BUTTON_HEIGHT + sectionGap;
         int tooltipsButtonY = tooltipsTitleY + 15;
         int indicatorsTitleY = tooltipsButtonY + rowStep * 3 + sectionGap - 5;
         int indicatorsButtonY = indicatorsTitleY + 15;

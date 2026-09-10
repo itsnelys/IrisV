@@ -72,7 +72,18 @@ public class ProviderOptionsMenu extends Screen {
             config.save();
         }, "menu.irisv.providers.tooltip.recipes");
 
+        inventory.add(toggleText("menu.irisv.inventory_search", config.inventorySearchHighlight), button -> {
+            config.inventorySearchHighlight = !config.inventorySearchHighlight;
+            button.setMessage(toggleText("menu.irisv.inventory_search", config.inventorySearchHighlight));
+            config.save();
+        }, "menu.irisv.tooltip.inventory_search");
+
         Section hud = addSection("menu.irisv.providers.section.hud");
+        inventory.add(toggleText("menu.irisv.recipe_availability", config.recipeAvailability), button -> {
+            config.recipeAvailability = !config.recipeAvailability;
+            button.setMessage(toggleText("menu.irisv.recipe_availability", config.recipeAvailability));
+            config.save();
+        }, "menu.irisv.tooltip.recipe_availability");
         hud.add(toggleText("menu.irisv.providers.hud", config.enableIndicators), button -> {
             config.enableIndicators = !config.enableIndicators;
             button.setMessage(toggleText("menu.irisv.providers.hud", config.enableIndicators));
@@ -88,6 +99,28 @@ public class ProviderOptionsMenu extends Screen {
             button.setMessage(toggleText("menu.irisv.providers.durability_details", config.showDurabilityDetails));
             config.save();
         }, "menu.irisv.providers.tooltip.durability_details");
+
+        Section recipeHuds = addSection("menu.irisv.providers.section.recipe_huds");
+        for (var category : net.opal.irisv.recip.RecipeHudCategory.values()) {
+            recipeHuds.add(toggleText(category.labelKey(), !config.disabledRecipeHudCategories.contains(category.key())), button -> {
+                if (!config.disabledRecipeHudCategories.remove(category.key())) config.disabledRecipeHudCategories.add(category.key());
+                button.setMessage(toggleText(category.labelKey(), !config.disabledRecipeHudCategories.contains(category.key())));
+                config.save();
+            }, "menu.irisv.tooltip.hud_category");
+        }
+
+        var integrations = net.opal.irisv.api.compat.IrisVCompatibility.integrations();
+        if (!integrations.isEmpty()) {
+            Section compatibility = addSection("menu.irisv.providers.section.compatibility");
+            for (var integration : integrations) {
+                String key = net.opal.irisv.api.compat.IrisVCompatibility.settingKey(integration);
+                compatibility.add(integrationText(integration.title(), !config.disabledRecipeHudCategories.contains(key)), button -> {
+                    if (!config.disabledRecipeHudCategories.remove(key)) config.disabledRecipeHudCategories.add(key);
+                    button.setMessage(integrationText(integration.title(), !config.disabledRecipeHudCategories.contains(key)));
+                    config.save();
+                }, "menu.irisv.tooltip.compatibility");
+            }
+        }
 
         this.addRenderableWidget(Button.builder(Component.translatable("menu.irisv.return"), button -> {
             if (this.minecraft != null) this.minecraft.setScreen(parent);
@@ -216,7 +249,8 @@ public class ProviderOptionsMenu extends Screen {
         for (int i = 0; i < section.options.size(); i++) {
             Option option = section.options.get(i);
             boolean lastOddOption = i == section.options.size() - 1 && column == 0;
-            boolean fullWidth = section.options.size() == 1 || lastOddOption;
+            boolean fullWidth = section.options.size() == 1 || lastOddOption || section.titleKey.equals("menu.irisv.providers.section.recipe_huds")
+                    || section.titleKey.equals("menu.irisv.providers.section.compatibility");
 
             option.x = fullWidth || column == 0 ? x : x + halfWidth + 4;
             option.y = buttonY;
@@ -292,6 +326,10 @@ public class ProviderOptionsMenu extends Screen {
 
     private static Component sectionTitle(String key) {
         return Component.literal("§8> §f").append(Component.translatable(key));
+    }
+
+    private static Component integrationText(Component title, boolean enabled) {
+        return title.copy().append(": ").append(Component.translatable(enabled ? "menu.irisv.on" : "menu.irisv.off"));
     }
 
     private static Component toggleText(String key, boolean enabled) {
