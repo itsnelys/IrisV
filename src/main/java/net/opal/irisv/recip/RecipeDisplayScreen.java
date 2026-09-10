@@ -61,6 +61,8 @@ public class RecipeDisplayScreen extends Screen {
         RecipeDisplayScreen next = new RecipeDisplayScreen(
                 uses ? RecipeLookup.findUses(stack) : RecipeLookup.findRecipesForOutput(stack), parent, stack, uses);
         if (!next.categories.isEmpty()) show(next, parent);
+        else net.opal.irisv.commun.utils.FunctionUtilsChat.clientAction(Minecraft.getInstance().player,
+                uses ? "irisv.chat.no_uses" : "irisv.chat.no_recipe", stack.getHoverName());
     }
 
     static RecipeDisplayScreen preview(List<RecipeBookmarks.Entry> entries) {
@@ -89,6 +91,8 @@ public class RecipeDisplayScreen extends Screen {
         if (parent instanceof RecipeDisplayScreen browser && browser.layered) mc.popGuiLayer();
         next.layered = true;
         mc.pushGuiLayer(next);
+        net.opal.irisv.commun.utils.FunctionUtilsChat.clientAction(mc.player,
+                next.uses ? "irisv.chat.uses_opened" : "irisv.chat.recipes_opened", next.target.getHoverName());
     }
 
     void renderPreview(GuiGraphics gui, int mouseX, int mouseY, int screenWidth, int screenHeight) {
@@ -409,9 +413,13 @@ public class RecipeDisplayScreen extends Screen {
                 if (x >= bounds.x && x < bounds.x + 20 && y >= bounds.y + 23 && y < bounds.y + 43
                         && RecipeAvailability.isWorkstation(parentScreen)) {
                     if (RecipeTransfer.transfer(parentScreen, bookmark.entry, Screen.hasShiftDown())) {
+                        net.opal.irisv.commun.utils.FunctionUtilsChat.clientAction(minecraft.player,
+                                "irisv.chat.transfer_requested", bookmark.entry.output().getHoverName());
                         net.minecraft.client.Minecraft.getInstance().getSoundManager().play(
                                 net.minecraft.client.resources.sounds.SimpleSoundInstance.forUI(net.minecraft.sounds.SoundEvents.UI_BUTTON_CLICK, 1F));
                         onClose();
+                    } else {
+                        net.opal.irisv.commun.utils.FunctionUtilsChat.clientError(minecraft.player, "irisv.chat.transfer_blocked");
                     }
                     return true;
                 }

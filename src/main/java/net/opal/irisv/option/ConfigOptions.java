@@ -73,8 +73,13 @@ public class ConfigOptions {
             }
         } catch (IOException | RuntimeException e) {
             FunctionUtilsLogs.errorLog("Config", "Error loading config: " + e.getMessage());
-            INSTANCE = new ConfigOptions();
+            if (INSTANCE == null) INSTANCE = new ConfigOptions();
         }
+    }
+
+    public static void reloadChecked() throws IOException {
+        ConfigOptions loaded = fromJson(Files.readString(CONFIG_PATH));
+        INSTANCE = loaded;
     }
 
     static ConfigOptions fromJson(String json) {
@@ -154,11 +159,10 @@ public class ConfigOptions {
 
     public void save() {
         try {
-            Files.createDirectories(CONFIG_PATH.getParent());
-            Files.writeString(CONFIG_PATH, toJson());
-            FunctionUtilsLogs.infoLog("Config", "Config saved to " + CONFIG_PATH);
+            writeAtomic(CONFIG_PATH, toJson());
+            FunctionUtilsLogs.debugLog("Config", "Config saved to " + CONFIG_PATH);
         } catch (IOException e) {
-            FunctionUtilsLogs.errorLog("Config", "Error saving config: " + e.getMessage());
+            FunctionUtilsLogs.errorLog("Config", "Error saving config", e);
         }
     }
 
@@ -231,7 +235,7 @@ public class ConfigOptions {
         INSTANCE = next;
     }
 
-    private static void writeAtomic(Path path, String text) throws IOException {
+    static void writeAtomic(Path path, String text) throws IOException {
         Files.createDirectories(path.getParent());
         Path temporary = Files.createTempFile(path.getParent(), "irisv-", ".tmp");
         try {

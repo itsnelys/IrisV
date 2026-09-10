@@ -2,7 +2,6 @@ package net.opal.irisv.option;
 
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
-import net.minecraft.server.level.ServerLevel;
 import net.neoforged.fml.loading.FMLPaths;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.opal.irisv.commun.utils.FunctionUtilsChat;
@@ -38,18 +37,15 @@ public class ConfigReloader {
             Path basePath = FMLPaths.CONFIGDIR.get().resolve("irisv");
 
             if (!Files.exists(basePath)) {
-                if (source.getLevel() instanceof ServerLevel serverLevel) {
-                    FunctionUtilsChat.sendErrorMessage(serverLevel, "reloadfile.error.config.folder", basePath.toString());
-                }
+                source.sendFailure(net.minecraft.network.chat.Component.translatable("reloadfile.error.config.folder", basePath.toString()));
                 FunctionUtilsLogs.errorLog("Config", "Config folder not found : " + basePath.toString());
                 return 0;
             }
 
-            if (source.getLevel() instanceof ServerLevel serverLevel) {
-                FunctionUtilsChat.sendActionMessage(serverLevel, "reloadfile.action.config.start_reload", basePath.toString());
-            }
+            FunctionUtilsChat.sendActionMessage(source, "reloadfile.action.config.start_reload", basePath.toString());
             FunctionUtilsLogs.actionLog("Config", "Reloaded folder : " + basePath.toString());
 
+            java.util.concurrent.atomic.AtomicBoolean failed = new java.util.concurrent.atomic.AtomicBoolean();
             try (Stream<Path> files = Files.list(basePath)) {
                 files.filter(Files::isRegularFile)
                         .forEach(file -> {
@@ -57,41 +53,32 @@ public class ConfigReloader {
 
                             try {
                                 if ("options.json".equals(fileName)) {
-                                    ConfigOptions.load();
-                                    if (source.getLevel() instanceof ServerLevel serverLevel) {
-                                        FunctionUtilsChat.sendActionMessage(serverLevel, "reloadfile.action.config.reload", fileName);
-                                    }
+                                    ConfigOptions.reloadChecked();
+                                    FunctionUtilsChat.sendActionMessage(source, "reloadfile.action.config.reload", fileName);
                                     FunctionUtilsLogs.actionLog("Config", "Reloaded file " + fileName);
                                 } else if (reloadHandlers.containsKey(fileName)) {
                                     reloadHandlers.get(fileName).accept(file);
-                                    if (source.getLevel() instanceof ServerLevel serverLevel) {
-                                        FunctionUtilsChat.sendActionMessage(serverLevel, "reloadfile.action.config.reload", fileName);
-                                    }
+                                    FunctionUtilsChat.sendActionMessage(source, "reloadfile.action.config.reload", fileName);
                                     FunctionUtilsLogs.actionLog("Config", "Reloaded file " + fileName);
                                 } else {
-                                    if (source.getLevel() instanceof ServerLevel serverLevel) {
-                                        FunctionUtilsChat.sendInfoMessage(serverLevel, "reloadfile.info.config.loaded", fileName);
-                                    }
-                                    FunctionUtilsLogs.infoLog("Config", "Loaded file (no handler): " + fileName);
+                                    FunctionUtilsLogs.debugLog("Config", "Skipped file (no handler): " + fileName);
                                 }
                             } catch (Exception e) {
-                                if (source.getLevel() instanceof ServerLevel serverLevel) {
-                                    FunctionUtilsChat.sendErrorMessage(serverLevel, "reloadfile.error.config.load", fileName, e.getMessage());
-                                }
-                                FunctionUtilsLogs.errorLog("Config", "Failed to load : " + fileName);
-                                FunctionUtilsLogs.errorLog("Config", e.toString());
+                                failed.set(true);
+                                source.sendFailure(net.minecraft.network.chat.Component.translatable("reloadfile.error.config.load", fileName, e.getMessage()));
+                                FunctionUtilsLogs.errorLog("Config", "Failed to load: " + fileName, e);
                             }
                         });
+            }
+            if (failed.get()) {
+                source.sendFailure(net.minecraft.network.chat.Component.translatable("irisv.chat.reload_failed"));
+                return 0;
             }
             source.sendSuccess(() -> net.minecraft.network.chat.Component.translatable("reloadfile.action.config.done"), false);
             return 1;
         } catch (Exception e) {
             source.sendFailure(net.minecraft.network.chat.Component.translatable("reloadfile.error.config.reload", e.getMessage()));
-            if (source.getLevel() instanceof ServerLevel serverLevel) {
-                FunctionUtilsChat.sendErrorMessage(serverLevel, "reloadfile.error.config.reload", e.getMessage());
-            }
-            FunctionUtilsLogs.errorLog("Config", "Failed to reload configs : " + e.getMessage());
-            FunctionUtilsLogs.errorLog("Config", e.toString());
+            FunctionUtilsLogs.errorLog("Config", "Failed to reload configs", e);
             return 0;
         }
     }

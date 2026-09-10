@@ -40,6 +40,11 @@ public class ClientDataCache {
         clear();
     }
 
+    @SubscribeEvent
+    public static void onLevelUnload(net.neoforged.neoforge.event.level.LevelEvent.Unload event) {
+        if (event.getLevel().isClientSide()) clear();
+    }
+
     public static void handleData(final BlockDataPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> update(payload.pos(), payload.tag()));
     }

@@ -80,6 +80,8 @@ final class RecipeBookmarks {
         config.savedRecipeBookmarks = saved;
         config.save();
         invalidate();
+        net.opal.irisv.commun.utils.FunctionUtilsChat.clientAction(Minecraft.getInstance().player,
+                removed ? "irisv.chat.recipe_removed" : "irisv.chat.recipe_added", entry.output.getHoverName());
     }
 
     private static com.google.gson.JsonElement encodeStack(ItemStack stack) {

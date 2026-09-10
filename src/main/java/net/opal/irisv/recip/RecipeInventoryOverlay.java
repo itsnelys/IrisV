@@ -203,6 +203,8 @@ public final class RecipeInventoryOverlay {
 
         if (isHovering(event.getMouseX(), event.getMouseY(), layout.visibilityX, layout.visibilityY, PAGE_BUTTON_SIZE, PAGE_BUTTON_SIZE)) {
             recipePanelHidden = !recipePanelHidden;
+            net.opal.irisv.commun.utils.FunctionUtilsChat.clientAction(Minecraft.getInstance().player,
+                    recipePanelHidden ? "irisv.chat.catalog_hidden" : "irisv.chat.catalog_visible");
             if (recipePanelHidden && searchBox != null) {
                 searchBox.setFocused(false);
             }
@@ -227,6 +229,8 @@ public final class RecipeInventoryOverlay {
         if (hasFavorites() && event.getButton() == 0 && isHovering(event.getMouseX(), event.getMouseY(), favoriteHeaderX, layout.favoritesY - 28, favoriteWidth(layout), 20)) {
             int index = Math.min(3, (int) (event.getMouseX() - favoriteHeaderX) / layout.favoriteCellWidth);
             favoriteFilter = FavoriteFilter.values()[index];
+            net.opal.irisv.commun.utils.FunctionUtilsChat.clientAction(Minecraft.getInstance().player,
+                    "irisv.chat.favorite_filter", Component.translatable("irisv.chat.filter." + favoriteFilter.name().toLowerCase(java.util.Locale.ROOT)));
             favoriteScroll = 0;
             ConfigOptions.getInstance().favoriteFilter = favoriteFilter.name();
             ConfigOptions.getInstance().save();
@@ -283,6 +287,8 @@ public final class RecipeInventoryOverlay {
         RecipeCategory selectedCategory = categoryAt(layout, event.getMouseX(), event.getMouseY());
         if (selectedCategory != null) {
             activeCategory = selectedCategory;
+            net.opal.irisv.commun.utils.FunctionUtilsChat.clientAction(Minecraft.getInstance().player,
+                    "irisv.chat.catalog_filter", selectedCategory.name());
             categoryMenuOpen = false;
             page = 0;
             refreshFilteredItems();
@@ -470,6 +476,7 @@ public final class RecipeInventoryOverlay {
         Minecraft mc = Minecraft.getInstance();
         if (!ConfigOptions.getInstance().inventorySearchHighlight || !highlightSearchMode || query.isBlank()
                 || mc.player == null || !(screen instanceof AbstractContainerScreen<?> container)) return;
+        int highlightRgb = UiTheme.getCurrent().block_countNormalHex() & 0x00FFFFFF;
         gui.pose().pushPose();
         gui.pose().translate(0, 0, 100);
         for (var slot : container.getMenu().slots) {
@@ -478,8 +485,8 @@ public final class RecipeInventoryOverlay {
             int x = container.getGuiLeft() + slot.x;
             int y = container.getGuiTop() + slot.y;
             if (x < 0 || y < 0 || x + ITEM_SIZE > screen.width || y + ITEM_SIZE > screen.height) continue;
-            gui.fill(x, y, x + ITEM_SIZE, y + ITEM_SIZE, 0x3028E8FF);
-            gui.renderOutline(x - 1, y - 1, ITEM_SIZE + 2, ITEM_SIZE + 2, 0xFF28E8FF);
+            gui.fill(x, y, x + ITEM_SIZE, y + ITEM_SIZE, 0x30000000 | highlightRgb);
+            gui.renderOutline(x - 1, y - 1, ITEM_SIZE + 2, ITEM_SIZE + 2, 0xFF000000 | highlightRgb);
         }
         gui.pose().popPose();
     }
@@ -651,6 +658,7 @@ public final class RecipeInventoryOverlay {
         for (String key : config.favoriteOrder) if (!order.contains(key)) order.add(key);
         config.favoriteOrder = order;
         config.save();
+        net.opal.irisv.commun.utils.FunctionUtilsChat.clientAction(Minecraft.getInstance().player, "irisv.chat.favorites_reordered");
         playClick();
     }
 
@@ -942,6 +950,8 @@ public final class RecipeInventoryOverlay {
             favorites.add(0, stack.copy());
         }
         favoriteScroll = 0;
+        net.opal.irisv.commun.utils.FunctionUtilsChat.clientAction(Minecraft.getInstance().player,
+                existing >= 0 ? "irisv.chat.favorite_removed" : "irisv.chat.favorite_added", stack.getHoverName());
     }
 
     private static int favoriteIndex(ItemStack stack) {

@@ -35,6 +35,7 @@ public final class ClientKeyBindings {
             if (Minecraft.getInstance().screen == null) net.opal.irisv.recip.PinnedRecipeHud.toggleVisibility();
         }
         while (TOGGLE_OVERLAY.consumeClick()) {
+            if (Minecraft.getInstance().screen != null || Minecraft.getInstance().player == null) continue;
             ConfigOptions config = ConfigOptions.getInstance();
             config.enableBlockTooltipOverlay = !config.enableBlockTooltipOverlay;
             config.save();

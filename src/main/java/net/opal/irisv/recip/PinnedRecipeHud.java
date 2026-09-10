@@ -36,11 +36,14 @@ public final class PinnedRecipeHud {
         }
         level = Minecraft.getInstance().level;
         visible = true;
+        net.opal.irisv.commun.utils.FunctionUtilsChat.clientAction(Minecraft.getInstance().player,
+                "irisv.chat.pinned", entry.output().getHoverName());
     }
 
-    static boolean isPinned(RecipeBookmarks.Entry entry) { return pinned != null && pinned.key().equals(entry.key()); }
+    static boolean isPinned(RecipeBookmarks.Entry entry) { return hasPinned() && pinned.key().equals(entry.key()); }
     static boolean hasPinned() { return pinned != null && level == Minecraft.getInstance().level; }
     static void unpin() {
+        if (hasPinned()) net.opal.irisv.commun.utils.FunctionUtilsChat.clientAction(Minecraft.getInstance().player, "irisv.chat.unpinned");
         pinned = null;
         requirements.clear();
         level = null;
@@ -53,7 +56,12 @@ public final class PinnedRecipeHud {
     private static void addStack(ItemStack stack) {
         requirements.add(new Requirement(stackKey(stack), stack.getHoverName(), value -> ItemStack.isSameItemSameComponents(value, stack)));
     }
-    public static void toggleVisibility() { visible = !visible; }
+    public static void toggleVisibility() {
+        if (!hasPinned()) return;
+        visible = !visible;
+        net.opal.irisv.commun.utils.FunctionUtilsChat.clientAction(Minecraft.getInstance().player,
+                visible ? "irisv.chat.pin_visible" : "irisv.chat.pin_hidden");
+    }
 
     public static void render(GuiGraphics gui) {
         var mc = Minecraft.getInstance();

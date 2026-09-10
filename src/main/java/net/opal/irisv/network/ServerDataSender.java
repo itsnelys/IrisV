@@ -61,6 +61,13 @@ public class ServerDataSender {
         return !masterPos.equals(lastMasterPos) || lastHash == null || hash != lastHash;
     }
 
+    @SubscribeEvent
+    public static void onChangedDimension(PlayerEvent.PlayerChangedDimensionEvent event) {
+        UUID uuid = event.getEntity().getUUID();
+        LAST_POS.remove(uuid);
+        LAST_DATA_HASH.remove(uuid);
+    }
+
     public static void updateCache(UUID uuid, BlockPos pos, int hash) {
         LAST_POS.put(uuid, pos);
         LAST_DATA_HASH.put(uuid, hash);

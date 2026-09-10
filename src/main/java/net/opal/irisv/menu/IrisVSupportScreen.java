@@ -41,7 +41,7 @@ public final class IrisVSupportScreen extends Screen {
             try {
                 Files.createDirectories(ConfigOptions.exchangePath().getParent());
                 Util.getPlatform().openFile(ConfigOptions.exchangePath().getParent().toFile());
-            } catch (Exception exception) { failure(); }
+            } catch (Exception exception) { failure(exception); }
         }).bounds(x, 66, w, 20).build());
         addRenderableWidget(Button.builder(Component.translatable("menu.irisv.return"), button -> onClose())
                 .bounds(x, height - 30, w, 20).build());
@@ -58,19 +58,23 @@ public final class IrisVSupportScreen extends Screen {
         try {
             ConfigOptions.getInstance().exportSettingsFile();
             status = Component.translatable("irisv.settings.exported").withStyle(ChatFormatting.GREEN);
+            net.opal.irisv.commun.utils.FunctionUtilsChat.clientAction(minecraft.player, "irisv.settings.exported");
             scroll = 0;
-        } catch (Exception exception) { failure(); }
+        } catch (Exception exception) { failure(exception); }
     }
 
     private void importFile() {
         try {
             ConfigOptions.importSettingsFile();
             status = Component.translatable("irisv.settings.imported").withStyle(ChatFormatting.GREEN);
+            net.opal.irisv.commun.utils.FunctionUtilsChat.clientAction(minecraft.player, "irisv.settings.imported");
             scroll = 0;
-        } catch (Exception exception) { failure(); }
+        } catch (Exception exception) { failure(exception); }
     }
 
-    private void failure() {
+    private void failure(Exception exception) {
+        net.opal.irisv.commun.utils.FunctionUtilsLogs.errorLog("Settings", "Settings operation failed", exception);
+        net.opal.irisv.commun.utils.FunctionUtilsChat.clientError(minecraft.player, "irisv.settings.failed");
         status = Component.translatable("irisv.settings.failed").withStyle(ChatFormatting.RED);
         scroll = 0;
     }
