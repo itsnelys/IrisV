@@ -2,7 +2,7 @@
 
 Catalogue d'objets, recettes, favoris et informations en jeu pour Minecraft.
 
-**Minecraft 1.21.1 · NeoForge 21.1.248 · Java 21 · 0.0.1-alpha**
+**Minecraft 1.21.1 · NeoForge 21.1.248 · Java 21 · 1.0.0**
 
 [Français](#français) | [English](#english)
 
@@ -12,7 +12,7 @@ Catalogue d'objets, recettes, favoris et informations en jeu pour Minecraft.
 
 IrisV rassemble les outils nécessaires pour consulter les objets, comprendre leurs recettes et préparer une fabrication sans quitter l'interface du jeu. Le mod associe un catalogue d'inventaire à des favoris, des tooltips et des indicateurs HUD configurables.
 
-Le projet est en **alpha**. La compilation et les tests automatisés ne remplacent pas les essais en jeu, notamment en multijoueur et avec des machines ajoutées par d'autres mods.
+Première release : **v1 (1.0.0)**. La compilation et les tests automatisés ne remplacent pas les essais en jeu, notamment en multijoueur et avec des machines ajoutées par d'autres mods.
 
 > La version cible est définie dans `gradle.properties`. Un dossier local nommé `irisv1.21.4` ne signifie pas que cette version de Minecraft est prise en charge.
 
@@ -36,7 +36,7 @@ Les interactions et raccourcis sont documentés dans le Wiki en jeu. Les touches
 
 1. Préparer une instance **Minecraft 1.21.1 avec NeoForge 21.1.248** et Java 21.
 2. Compiler le projet ou utiliser un JAR obtenu auprès d'une source autorisée.
-3. Placer `irisv-0.0.1-alpha.jar` dans le dossier `mods` de l'instance.
+3. Placer `irisv-1.0.0.jar` dans le dossier `mods` de l'instance.
 4. Lancer le jeu et ouvrir **IrisV Options** depuis le menu principal.
 
 Pour une installation multijoueur, prévoir IrisV sur le client et le serveur : le mod déclare un canal réseau pour les données des tooltips. Ne pas le considérer comme un mod exclusivement client.
@@ -51,7 +51,7 @@ Depuis la racine du dépôt, dans PowerShell :
 .\gradlew.bat build
 ```
 
-Le build compile le code et exécute les tests. Le JAR est produit dans `build/libs/irisv-0.0.1-alpha.jar` ; son nom suit `mod_id` et `mod_version` dans `gradle.properties`.
+Le build compile le code et exécute les tests. Le JAR est produit dans `build/libs/irisv-1.0.0.jar` ; son nom suit `mod_id` et `mod_version` dans `gradle.properties`.
 
 | Commande PowerShell | Usage |
 | --- | --- |
@@ -98,7 +98,7 @@ Projet propriétaire, copyright © 2026 itsnelys. Aucune autorisation de copie, 
 
 IrisV combines an inventory catalogue, recipe browsing, favorites, tooltips and configurable HUD indicators to help players inspect items and prepare crafting without leaving the game interface.
 
-This is an **alpha** targeting **Minecraft 1.21.1, NeoForge 21.1.248 and Java 21**. The target is defined in `gradle.properties`, regardless of the local directory name. Successful builds and automated tests do not guarantee every multiplayer or modded-machine workflow.
+First release: **v1 (1.0.0)**, targeting **Minecraft 1.21.1, NeoForge 21.1.248 and Java 21**. The target is defined in `gradle.properties`, regardless of the local directory name. Successful builds and automated tests do not guarantee every multiplayer or modded-machine workflow.
 
 ### Features
 
@@ -128,7 +128,7 @@ Build from the repository root:
 .\gradlew.bat build
 ```
 
-The wrapper supplies Gradle 9.2.1. The first run requires network access to download dependencies and Minecraft resources. Output: `build/libs/irisv-0.0.1-alpha.jar`; the filename follows `mod_id` and `mod_version`.
+The wrapper supplies Gradle 9.2.1. The first run requires network access to download dependencies and Minecraft resources. Output: `build/libs/irisv-1.0.0.jar`; the filename follows `mod_id` and `mod_version`.
 
 Use `runClient` or `runServer` for development, `test` for automated tests, and `runData` for data generation. On Linux/macOS, use `./gradlew` instead of `.\gradlew.bat`. Server administrators must accept Minecraft's EULA before running a server.
 
