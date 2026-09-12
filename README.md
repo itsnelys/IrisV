@@ -14,7 +14,7 @@ IrisV rassemble les outils nécessaires pour consulter les objets, comprendre le
 
 Première release : **v1 (1.0.0)**. La compilation et les tests automatisés ne remplacent pas les essais en jeu, notamment en multijoueur et avec des machines ajoutées par d'autres mods.
 
-> La version cible est définie dans `gradle.properties`. Un dossier local nommé `irisv1.21.4` ne signifie pas que cette version de Minecraft est prise en charge.
+> La version cible est définie dans `gradle.properties`, indépendamment du nom du dossier local.
 
 ### Fonctionnalités
 
